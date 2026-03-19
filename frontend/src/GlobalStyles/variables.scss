@@ -1,0 +1,170 @@
+// ==============================
+// 🌑 COLORS — BASE
+// ==============================
+
+$color-bg: #1a1a1c;
+$color-surface: rgb(31, 31, 32);
+$color-surface-2: #161618;
+$color-border: #1c1c1f;
+
+// ==============================
+// 📝 TEXT COLORS
+// ==============================
+
+$text-primary: #ffffff;
+$text-secondary: #a1a1aa;
+$text-muted: #6b7280;
+
+// ==============================
+// 🎨 ACCENT
+// ==============================
+
+$accent-primary: #7c3aed; // основной (фиолет)
+$accent-hover: #6d28d9;
+$accent-active: #5b21b6;
+
+$accent-blue: #2563eb; // альтернативный
+$accent-blue-hover: #1d4ed8;
+
+// ==============================
+// 🚦 STATUS COLORS
+// ==============================
+
+$status-success: #22c55e;
+$status-error: #ef4444;
+$status-warning: #f59e0b;
+$status-info: #3b82f6;
+
+// ==============================
+// 🌫️ BACKGROUND STATES
+// ==============================
+
+$bg-hover: rgba(255, 255, 255, 0.04);
+$bg-active: rgba(255, 255, 255, 0.08);
+$bg-selected: rgba(124, 58, 237, 0.15);
+
+// ==============================
+// 🧱 BORDERS
+// ==============================
+
+$border-default: 1px solid $color-border;
+$border-light: 1px solid rgba(255, 255, 255, 0.06);
+
+// ==============================
+// 🌟 SHADOWS
+// ==============================
+
+$shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.25);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+$shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+// glow под акцент (важно для hover)
+$glow-accent:
+  0 0 0 1px rgba(124, 58, 237, 0.3),
+  0 0 12px rgba(124, 58, 237, 0.35);
+
+// ==============================
+// 🔘 RADIUS
+// ==============================
+
+$radius-xs: 6px;
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 20px;
+
+// ==============================
+// 📏 SPACING (8px grid)
+// ==============================
+
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+
+// ==============================
+// 🔤 TYPOGRAPHY
+// ==============================
+
+$font-main: "Inter", sans-serif;
+$font-mono: "JetBrains Mono", monospace;
+
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-md: 14px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-2xl: 20px;
+
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+
+// ==============================
+// ⚡ TRANSITIONS
+// ==============================
+
+$transition-fast: 0.15s ease;
+$transition-base: 0.25s ease;
+$transition-slow: 0.4s ease;
+
+// ==============================
+// 📦 LAYOUT
+// ==============================
+
+$sidebar-width: 64px;
+$sidebar-expanded: 220px;
+
+$topbar-height: 64px;
+
+$container-padding: 24px;
+
+// ==============================
+// 🧩 Z-INDEX
+// ==============================
+
+$z-dropdown: 100;
+$z-modal: 200;
+$z-toast: 300;
+$z-tooltip: 400;
+
+// ==============================
+// 🔥 COMPONENT TOKENS
+// ==============================
+
+// button
+$btn-height: 36px;
+$btn-radius: $radius-sm;
+
+// input
+$input-height: 36px;
+$input-bg: $color-surface-2;
+$input-border: $border-light;
+
+// card
+$card-bg: $color-surface;
+$card-border: $border-default;
+$card-radius: $radius-md;
+$card-padding: $space-4;
+
+// ==============================
+// 🎯 STATES
+// ==============================
+
+$opacity-disabled: 0.5;
+$opacity-muted: 0.7;
+
+// ==============================
+// 📜 LOGS (terminal feel)
+// ==============================
+
+$log-bg: #0a0a0b;
+$log-text: #d1d5db;
+$log-success: #22c55e;
+$log-error: #f87171;
+$log-warning: #fbbf24;

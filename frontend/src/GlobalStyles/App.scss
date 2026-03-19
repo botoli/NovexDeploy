@@ -1,0 +1,14 @@
+@use "./variables.scss" as *;
+:root {
+  font-family: "Open Sans", sans-serif;
+  background-color: $color-bg;
+  color: $text-primary;
+}
+body {
+  margin: 0;
+  padding: 0;
+}
+.AllApp {
+  display: flex;
+  flex-flow: row nowrap;
+}
