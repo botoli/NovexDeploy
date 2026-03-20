@@ -1,0 +1,296 @@
+basePath: /
+definitions:
+  models.APIResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      ok:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+host: localhost:8888
+info:
+  contact:
+    email: support@localvercel.com
+    name: API Support
+    url: http://www.localvercel.com/support
+  description: |-
+    Полное API для LocalVercel - локальной платформы для деплоя приложений
+    Поддерживает проекты, деплои, логи, домены, переменные окружения,
+    Telegram ботов, сборки, метрики, уведомления, Git интеграцию и шаблоны.
+
+    ## Аутентификация
+    Для доступа к защищенным эндпоинтам используйте Bearer токен в заголовке:
+    `Authorization: Bearer <ваш_токен>`
+
+    ## WebSocket
+    Для реального времени доступны WebSocket соединения:
+    - `ws://localhost:8888/ws/deployments` - обновления деплоев
+    - `ws://localhost:8888/ws/logs` - все логи
+    - `ws://localhost:8888/ws/projects` - обновления проектов
+    - `ws://localhost:8888/ws/logs/{deploymentId}` - логи конкретного деплоя
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: LocalVercel API
+  version: "1.0"
+paths:
+  /{action}:
+    post:
+      consumes:
+      - application/json
+      description: Выполняет указанное действие без параметров пути
+      parameters:
+      - description: Параметры действия
+        in: body
+        name: request
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Действие выполнено
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Выполнить действие
+      tags:
+      - Actions
+  /{resource}:
+    get:
+      description: Возвращает список всех ресурсов указанного типа
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список ресурсов
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Получить список ресурсов
+      tags:
+      - Resources
+    post:
+      consumes:
+      - application/json
+      description: Создает новый ресурс указанного типа
+      parameters:
+      - description: Данные для создания
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Ресурс создан
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Создать ресурс
+      tags:
+      - Resources
+  /{resource}/{id}:
+    delete:
+      description: Удаляет существующий ресурс по его идентификатору
+      parameters:
+      - description: ID ресурса
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ресурс удален
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Удалить ресурс по ID
+      tags:
+      - Resources
+    get:
+      description: Возвращает ресурс по его идентификатору
+      parameters:
+      - description: ID ресурса
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ресурс получен
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Получить ресурс по ID
+      tags:
+      - Resources
+    patch:
+      consumes:
+      - application/json
+      description: Обновляет существующий ресурс по его идентификатору
+      parameters:
+      - description: ID ресурса
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ресурс обновлен
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Обновить ресурс по ID
+      tags:
+      - Resources
+  /{resource}/{id}/{action}:
+    post:
+      consumes:
+      - application/json
+      description: Выполняет указанное действие с параметрами из пути
+      parameters:
+      - description: ID ресурса
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Дополнительные параметры
+        in: body
+        name: request
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Действие выполнено
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Выполнить действие с параметрами
+      tags:
+      - Actions
+  /{resource}/me:
+    get:
+      description: Возвращает ресурс текущего пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ресурс получен
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Получить ресурс
+      tags:
+      - Resources
+    patch:
+      consumes:
+      - application/json
+      description: Обновляет ресурс текущего пользователя
+      parameters:
+      - description: Данные для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ресурс обновлен
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Обновить ресурс
+      tags:
+      - Resources
+  /health:
+    get:
+      description: Возвращает статус сервиса и время работы
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Сервис работает
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Проверка здоровья
+      tags:
+      - System
+  /metrics/system:
+    get:
+      description: Возвращает метрики системы (CPU, RAM, Disk)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Системные метрики
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Системные метрики
+      tags:
+      - Metrics
+  /search:
+    get:
+      description: Ищет по проектам, деплоям, логам и ботам
+      parameters:
+      - description: Поисковый запрос
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Результаты поиска
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Поиск по всем ресурсам
+      tags:
+      - Search
+  /status:
+    get:
+      description: Возвращает информацию о версии и статусе сервиса
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Информация о сервисе
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Информация о сервисе
+      tags:
+      - System
+  /usage:
+    get:
+      description: Возвращает статистику использования ресурсов
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Статистика использования
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Статистика использования
+      tags:
+      - System
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

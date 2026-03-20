@@ -8,7 +8,7 @@ function App() {
     <div className="AllApp">
       <LeftPanel />
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
       </Routes>
     </div>

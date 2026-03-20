@@ -141,12 +141,11 @@
 .Active {
   .DeploymentsList {
     display: flex;
-    justify-content: space-between;
     flex-flow: column wrap;
+    gap: 30px;
     .RowsDiv {
       display: flex;
-      flex-flow: row nowrap;
-
+      justify-content: space-around;
       .Rows {
         background-color: rgba(vars.$accent-blue, 0.08);
         width: 100%;

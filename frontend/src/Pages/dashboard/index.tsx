@@ -23,7 +23,7 @@ export function DashboardPage() {
         </div>
         <h1 className={styles.title}>Novex Deploy</h1>
         <div className={styles.navigation}>
-          <button className={styles.DeployBtn}>
+          <button className={styles.DeployBtn} onClick={() => {}}>
             <p>Deploy</p>
           </button>
           <button className={styles.notificationBtn}>
