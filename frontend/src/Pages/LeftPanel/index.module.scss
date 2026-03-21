@@ -48,7 +48,9 @@
   background: rgba(124, 58, 237, 0.15);
   color: #7c3aed;
 }
-
+.icon {
+  margin-left: 10px;
+}
 .bottom {
   margin-top: auto;
 }
@@ -58,7 +60,7 @@
   height: 36px;
   border-radius: 50%;
   background: #111113;
-
+  margin-bottom: 36px;
   display: flex;
   align-items: center;
   justify-content: center;

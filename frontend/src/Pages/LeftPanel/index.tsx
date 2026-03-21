@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Box, Rocket, Terminal, Settings, Bot } from "lucide-react";
+import { Home, Box, Rocket, Terminal, Settings } from "lucide-react";
 import styles from "./index.module.scss";
+import { observer } from "mobx-react-lite";
+import { GithubUser } from "../../Store/GithubInfo.store";
 
 const NAV_ITEMS = [
   {
@@ -27,7 +29,7 @@ const NAV_ITEMS = [
   // если хочешь включить ботов — раскомментируй
   // {
   //   label: "Bots",
-  //   icon: Bot,
+  //   icon: RailSymbol,
   //   path: "/bots",
   // },
   {
@@ -37,7 +39,7 @@ const NAV_ITEMS = [
   },
 ];
 
-export function LeftPanel() {
+export const LeftPanel = observer(() => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -60,7 +62,7 @@ export function LeftPanel() {
               className={`${styles.item} ${active ? styles.active : ""}`}
               onClick={() => navigate(item.path)}
             >
-              <Icon size={20} />
+              <Icon size={20} className={styles.icon} />
               <span className={styles.label}>{item.label}</span>
             </div>
           );
@@ -70,9 +72,18 @@ export function LeftPanel() {
       {/* Bottom (user) */}
       <div className={styles.bottom}>
         <div className={styles.user}>
-          <div className={styles.avatar}>A</div>
+          <div className={styles.avatar}>
+            {GithubUser.user?.avatar_url && (
+              <img
+                src={GithubUser.user?.avatar_url}
+                alt={GithubUser.user?.github_login}
+                style={{ width: "50px", borderRadius: "50%" }}
+              />
+            )}
+            {GithubUser.user?.github_login}
+          </div>
         </div>
       </div>
     </div>
   );
-}
+});

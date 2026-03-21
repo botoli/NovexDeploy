@@ -1,47 +1,16 @@
 import { useEffect, useState } from "react";
 import styles from "./ProjectsPage.module.scss";
+import { GithubUser } from "../../Store/GithubInfo.store";
 
 export function ProjectsPage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const fetchGitHubProfile = async () => {
-    setLoading(true);
-    try {
-      // Используем относительный путь - прокси перенаправит
-      const response = await fetch("/auth/me", {
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (data.ok) {
-        setUser(data.data);
-      } else {
-        setError(data.message);
-      }
-    } catch (err) {
-      console.error("Fetch error:", err);
-      setError("Failed to fetch profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchGitHubProfile();
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
-  if (error)
+  if (GithubUser.loading) return <div>Loading...</div>;
+  if (GithubUser.error)
     return (
       <div>
-        <p style={{ color: "red" }}>Error: {error}</p>
-        <button onClick={fetchGitHubProfile}>Retry</button>
+        <p style={{ color: "red" }}>Error: {GithubUser.error}</p>
       </div>
     );
-  if (!user)
+  if (!GithubUser.user)
     return (
       <div>
         <p>Please login</p>
@@ -57,13 +26,13 @@ export function ProjectsPage() {
         <h2>GitHub Profile</h2>
 
         {/* Проверяем что пришло */}
-        <pre>{JSON.stringify(user, null, 2)}</pre>
+        <pre>{JSON.stringify(GithubUser.user, null, 2)}</pre>
 
         {/* Аватар */}
-        {user.avatar_url && (
+        {GithubUser.user.avatar_url && (
           <img
-            src={user.avatar_url}
-            alt={user.name}
+            src={GithubUser.user.avatar_url}
+            alt={GithubUser.user.name}
             style={{ width: "100px", borderRadius: "50%" }}
           />
         )}
@@ -71,13 +40,13 @@ export function ProjectsPage() {
         {/* Информация */}
         <div>
           <p>
-            <strong>Name:</strong> {user.name || "N/A"}
+            <strong>Name:</strong> {GithubUser.user.name || "N/A"}
           </p>
           <p>
-            <strong>Username:</strong> {user.github_login || "N/A"}
+            <strong>Username:</strong> {GithubUser.user.github_login || "N/A"}
           </p>
           <p>
-            <strong>Email:</strong> {user.email || "N/A"}
+            <strong>Email:</strong> {GithubUser.user.email || "N/A"}
           </p>
         </div>
       </div>
