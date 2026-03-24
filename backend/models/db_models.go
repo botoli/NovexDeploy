@@ -35,25 +35,33 @@ type Session struct {
 
 type Project struct {
 	gorm.Model
-	ID            string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	UserID        string         `gorm:"not null;index" json:"user_id"`
-	Name          string         `gorm:"not null" json:"name"`
-	Description   string         `json:"description"`
-	Repository    string         `json:"repository"`
-	Branch        string         `json:"branch" default:"main"`
-	Framework     string         `json:"framework"`
-	ProjectType   string         `gorm:"default:backend" json:"project_type"` // backend | telegram
-	BuildCmd      string         `json:"build_command"`
-	StartCmd      string         `json:"start_command"`
-	RootDir       string         `gorm:"default:." json:"root_dir"`
-	OutputDir     string         `json:"output_dir" default:"dist"`
-	RuntimePort   int            `json:"runtime_port"`
-	RuntimeState  string         `gorm:"default:configured" json:"runtime_state"` // configured|deploying|running|failed|stopped
-	EnvVars       []EnvVar       `json:"env_vars,omitempty" gorm:"foreignKey:ProjectID"`
-	Deployments   []Deployment   `json:"deployments,omitempty" gorm:"foreignKey:ProjectID"`
-	WebhookID     int            `json:"webhook_id,omitempty"`
-	WebhookSecret string         `json:"-"`
-	Telegram      TelegramConfig `json:"telegram,omitempty" gorm:"foreignKey:ProjectID"`
+	ID               string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	UserID           string         `gorm:"not null;index" json:"user_id"`
+	Name             string         `gorm:"not null" json:"name"`
+	Description      string         `json:"description"`
+	Repository       string         `json:"repository"`
+	Branch           string         `json:"branch" default:"main"`
+	Framework        string         `json:"framework"`
+	ProjectType      string         `gorm:"default:backend" json:"project_type"` // backend | telegram
+	BuildCmd         string         `json:"build_command"`
+	StartCmd         string         `json:"start_command"`
+	RootDir          string         `gorm:"default:." json:"root_dir"`
+	OutputDir        string         `json:"output_dir" default:"dist"`
+	RuntimePort      int            `json:"runtime_port"`
+	RuntimeState     string         `gorm:"default:configured" json:"runtime_state"` // configured|deploying|running|failed|stopped
+	RuntimeHost      string         `json:"runtime_host"`
+	RuntimeContainer string         `json:"runtime_container"`
+	DBState          string         `gorm:"default:not_configured" json:"db_state"`
+	DBContainer      string         `json:"db_container"`
+	DBName           string         `json:"db_name"`
+	DBUser           string         `json:"db_user"`
+	DBPassword       string         `json:"-"`
+	DBPort           int            `json:"db_port"`
+	EnvVars          []EnvVar       `json:"env_vars,omitempty" gorm:"foreignKey:ProjectID"`
+	Deployments      []Deployment   `json:"deployments,omitempty" gorm:"foreignKey:ProjectID"`
+	WebhookID        int            `json:"webhook_id,omitempty"`
+	WebhookSecret    string         `json:"-"`
+	Telegram         TelegramConfig `json:"telegram,omitempty" gorm:"foreignKey:ProjectID"`
 }
 
 type EnvVar struct {

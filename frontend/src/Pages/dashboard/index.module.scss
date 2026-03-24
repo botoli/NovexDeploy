@@ -2,24 +2,135 @@
 
 .Page {
   min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 20% -10%, rgba(124, 58, 237, 0.16), transparent 60%),
+    radial-gradient(1200px 600px at 95% -20%, rgba(59, 130, 246, 0.14), transparent 60%);
 }
 
 .title {
   font-size: 30px;
-  margin: 0 0 16px;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: vars.$text-secondary;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.topActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionPrimary,
+.actionGhost,
+.quickBtn,
+.linkBtn {
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all vars.$transition-fast;
+}
+
+.actionPrimary {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  padding: 0 14px;
+  font-weight: 600;
+}
+
+.actionGhost {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: vars.$text-primary;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionGhost:hover,
+.quickBtn:hover,
+.linkBtn:hover {
+  border-color: rgba(124, 58, 237, 0.6);
+  box-shadow: vars.$glow-accent;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.metricCard {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+}
+
+.metricHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: vars.$text-secondary;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.metricMeta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: vars.$text-secondary;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .card {
-  border: 1px solid vars.$color-border;
-  background: vars.$color-surface;
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(31, 31, 32, 0.95), rgba(20, 20, 23, 0.95));
+  border-radius: 12px;
   padding: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cardHeader h3 {
+  margin: 0;
+}
+
+.linkBtn {
+  background: transparent;
+  color: vars.$text-secondary;
+  border-color: rgba(255, 255, 255, 0.06);
+  padding: 0 10px;
 }
 
 .list {
@@ -28,9 +139,125 @@
 }
 
 .row {
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px;
   color: vars.$text-secondary;
   font-size: 13px;
+}
+
+.meta {
+  color: vars.$text-muted;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.status {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+}
+
+.success {
+  color: vars.$status-success;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.failed {
+  color: vars.$status-error;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.building {
+  color: vars.$status-warning;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quickBtn {
+  background: rgba(255, 255, 255, 0.02);
+  color: vars.$text-primary;
+  border-color: rgba(255, 255, 255, 0.06);
+  text-align: left;
+  padding: 0 10px;
+}
+
+.projectGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.projectCard {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all vars.$transition-fast;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.projectCard:hover {
+  border-color: rgba(124, 58, 237, 0.55);
+  box-shadow: vars.$glow-accent;
+}
+
+.projectName {
+  font-weight: 600;
+}
+
+.empty {
+  color: vars.$text-secondary;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+@media (max-width: 1100px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .topBar {
+    flex-direction: column;
+  }
+
+  .topActions {
+    width: 100%;
+  }
+
+  .actionPrimary,
+  .actionGhost {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .projectGrid,
+  .quickGrid {
+    grid-template-columns: 1fr;
+  }
 }

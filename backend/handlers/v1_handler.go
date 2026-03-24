@@ -12,6 +12,7 @@ import (
 	"localVercel/utils"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -261,7 +262,10 @@ func (h *V1Handler) runtimeAction(w http.ResponseWriter, r *http.Request, action
 
 	switch action {
 	case "start":
-		info, err := h.Runtime.Start(project.ID, artifactDir, project.StartCmd, env)
+		if project.RuntimePort == 0 {
+			project.RuntimePort = 3000 + len(project.ID)%2000
+		}
+		info, err := h.Runtime.Start(project.ID, artifactDir, project.StartCmd, env, project.RuntimePort, runtimeImageForProject(project))
 		if err != nil {
 			project.RuntimeState = "failed"
 			db.DB.Save(project)
@@ -269,8 +273,10 @@ func (h *V1Handler) runtimeAction(w http.ResponseWriter, r *http.Request, action
 			return
 		}
 		project.RuntimeState = "running"
+		project.RuntimeContainer = info.Container
+		project.RuntimeHost = "localhost"
 		db.DB.Save(project)
-		inst := models.RuntimeInstance{ProjectID: project.ID, Status: "running", PID: info.PID, Command: info.Command, Host: "local", LastStartedAt: time.Now()}
+		inst := models.RuntimeInstance{ProjectID: project.ID, Status: "running", PID: info.PID, Command: info.Command, Host: "docker", LastStartedAt: time.Now()}
 		db.DB.Create(&inst)
 		utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Runtime started", inst))
 	case "stop":
@@ -283,7 +289,10 @@ func (h *V1Handler) runtimeAction(w http.ResponseWriter, r *http.Request, action
 		db.DB.Model(&models.RuntimeInstance{}).Where("project_id = ?", project.ID).Updates(map[string]interface{}{"status": "stopped"})
 		utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Runtime stopped", nil))
 	case "restart":
-		info, err := h.Runtime.Restart(project.ID, artifactDir, project.StartCmd, env)
+		if project.RuntimePort == 0 {
+			project.RuntimePort = 3000 + len(project.ID)%2000
+		}
+		info, err := h.Runtime.Restart(project.ID, artifactDir, project.StartCmd, env, project.RuntimePort, runtimeImageForProject(project))
 		if err != nil {
 			project.RuntimeState = "failed"
 			db.DB.Save(project)
@@ -291,8 +300,10 @@ func (h *V1Handler) runtimeAction(w http.ResponseWriter, r *http.Request, action
 			return
 		}
 		project.RuntimeState = "running"
+		project.RuntimeContainer = info.Container
+		project.RuntimeHost = "localhost"
 		db.DB.Save(project)
-		inst := models.RuntimeInstance{ProjectID: project.ID, Status: "running", PID: info.PID, Command: info.Command, Host: "local", LastStartedAt: time.Now()}
+		inst := models.RuntimeInstance{ProjectID: project.ID, Status: "running", PID: info.PID, Command: info.Command, Host: "docker", LastStartedAt: time.Now()}
 		db.DB.Create(&inst)
 		utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Runtime restarted", inst))
 	}
@@ -501,6 +512,112 @@ func (h *V1Handler) HandleDeploymentLogs(w http.ResponseWriter, r *http.Request)
 	}))
 }
 
+func (h *V1Handler) HandleDatabaseProvision(w http.ResponseWriter, r *http.Request) {
+	user, err := currentUserFromSession(r)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
+	project, ok := h.ownedProject(r.PathValue("projectId"), user.ID)
+	if !ok {
+		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
+		return
+	}
+	var req struct {
+		DBName     string `json:"db_name"`
+		DBUser     string `json:"db_user"`
+		DBPassword string `json:"db_password"`
+		DBPort     int    `json:"db_port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid body", nil))
+		return
+	}
+	if strings.TrimSpace(req.DBName) == "" {
+		req.DBName = "appdb"
+	}
+	if strings.TrimSpace(req.DBUser) == "" {
+		req.DBUser = "appuser"
+	}
+	if strings.TrimSpace(req.DBPassword) == "" {
+		req.DBPassword = "appsecret"
+	}
+	if req.DBPort <= 0 {
+		req.DBPort = 5433 + len(project.ID)%1000
+	}
+	container, err := h.Runtime.ProvisionDatabase(project.ID, req.DBName, req.DBUser, req.DBPassword, req.DBPort)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, err.Error(), nil))
+		return
+	}
+	project.DBState = "running"
+	project.DBContainer = container
+	project.DBName = req.DBName
+	project.DBUser = req.DBUser
+	project.DBPassword = req.DBPassword
+	project.DBPort = req.DBPort
+	db.DB.Save(project)
+
+	dsn := "postgres://" + req.DBUser + ":" + req.DBPassword + "@localhost:" + strconv.Itoa(req.DBPort) + "/" + req.DBName + "?sslmode=disable"
+	var dbURLVar models.EnvVar
+	if err := db.DB.Where("project_id = ? AND key = ?", project.ID, "DATABASE_URL").First(&dbURLVar).Error; err != nil {
+		db.DB.Create(&models.EnvVar{ProjectID: project.ID, Key: "DATABASE_URL", Value: dsn})
+	} else {
+		dbURLVar.Value = dsn
+		db.DB.Save(&dbURLVar)
+	}
+
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Database provisioned", map[string]interface{}{
+		"db_state":     project.DBState,
+		"db_container": project.DBContainer,
+		"db_port":      project.DBPort,
+		"database_url": "DATABASE_URL env var set",
+	}))
+}
+
+func (h *V1Handler) HandleDatabaseStatus(w http.ResponseWriter, r *http.Request) {
+	user, err := currentUserFromSession(r)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
+	project, ok := h.ownedProject(r.PathValue("projectId"), user.ID)
+	if !ok {
+		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
+		return
+	}
+	state := h.Runtime.DatabaseState(project.ID)
+	project.DBState = state
+	db.DB.Save(project)
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Database status", map[string]interface{}{
+		"state":     state,
+		"container": project.DBContainer,
+		"port":      project.DBPort,
+		"db_name":   project.DBName,
+		"db_user":   project.DBUser,
+	}))
+}
+
+func (h *V1Handler) HandleDatabaseStop(w http.ResponseWriter, r *http.Request) {
+	user, err := currentUserFromSession(r)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
+	project, ok := h.ownedProject(r.PathValue("projectId"), user.ID)
+	if !ok {
+		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
+		return
+	}
+	if err := h.Runtime.StopDatabase(project.ID); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, err.Error(), nil))
+		return
+	}
+	project.DBState = "stopped"
+	db.DB.Save(project)
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Database stopped", nil))
+}
+
 func (h *V1Handler) ownedProject(projectID, userID string) (*models.Project, bool) {
 	var project models.Project
 	if err := db.DB.Where("id = ? AND user_id = ?", projectID, userID).First(&project).Error; err != nil {
@@ -517,4 +634,20 @@ func maskValue(value string) string {
 		return "****"
 	}
 	return value[:2] + strings.Repeat("*", len(value)-4) + value[len(value)-2:]
+}
+
+func runtimeImageForProject(project *models.Project) string {
+	if project.ProjectType == ProjectTypeTelegram {
+		return "python:3.11-alpine"
+	}
+	switch strings.ToLower(strings.TrimSpace(project.Framework)) {
+	case "go":
+		return "golang:1.22-alpine"
+	case "python":
+		return "python:3.11-alpine"
+	case "node", "express", "nestjs":
+		return "node:20-alpine"
+	default:
+		return "node:20-alpine"
+	}
 }

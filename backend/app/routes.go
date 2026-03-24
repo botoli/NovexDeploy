@@ -58,6 +58,9 @@ func (a *App) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/projects/{projectId}/runtime/start", v1.HandleRuntimeStart)
 	mux.HandleFunc("POST /v1/projects/{projectId}/runtime/stop", v1.HandleRuntimeStop)
 	mux.HandleFunc("POST /v1/projects/{projectId}/runtime/restart", v1.HandleRuntimeRestart)
+	mux.HandleFunc("POST /v1/projects/{projectId}/database/provision", v1.HandleDatabaseProvision)
+	mux.HandleFunc("GET /v1/projects/{projectId}/database/status", v1.HandleDatabaseStatus)
+	mux.HandleFunc("POST /v1/projects/{projectId}/database/stop", v1.HandleDatabaseStop)
 
 	mux.HandleFunc("POST /v1/projects/{projectId}/telegram/config", v1.HandleTelegramConfig)
 	mux.HandleFunc("GET /v1/projects/{projectId}/telegram/status", v1.HandleTelegramStatus)
