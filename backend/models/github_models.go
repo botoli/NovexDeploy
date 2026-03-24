@@ -7,20 +7,20 @@ type GitHubAuthRequest struct {
 }
 
 type GitHubRepo struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	FullName    string    `json:"full_name"`
-	Description string    `json:"description"`
-	Private     bool      `json:"private"`
-	HTMLURL     string    `json:"html_url"`
-	CloneURL    string    `json:"clone_url"`
-	SSHURL      string    `json:"ssh_url"`
-	DefaultBranch string  `json:"default_branch"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	PushedAt    time.Time `json:"pushed_at"`
-	Size        int       `json:"size"`
-	Language    string    `json:"language"`
+	ID            int       `json:"id"`
+	Name          string    `json:"name"`
+	FullName      string    `json:"full_name"`
+	Description   string    `json:"description"`
+	Private       bool      `json:"private"`
+	HTMLURL       string    `json:"html_url"`
+	CloneURL      string    `json:"clone_url"`
+	SSHURL        string    `json:"ssh_url"`
+	DefaultBranch string    `json:"default_branch"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	PushedAt      time.Time `json:"pushed_at"`
+	Size          int       `json:"size"`
+	Language      string    `json:"language"`
 }
 
 type GitHubWebhookPayload struct {
@@ -72,12 +72,12 @@ type GitHubUser struct {
 }
 
 type ConnectedGitHubAccount struct {
-	UserID        string    `json:"user_id"`
-	GitHubID      int       `json:"github_id"`
-	GitHubLogin   string    `json:"github_login"`
-	AccessToken   string    `json:"-"` // Не возвращаем в JSON
-	ConnectedAt   time.Time `json:"connected_at"`
-	Repositories  []GitHubRepo `json:"repositories,omitempty"`
+	UserID       string       `json:"user_id"`
+	GitHubID     int          `json:"github_id"`
+	GitHubLogin  string       `json:"github_login"`
+	AccessToken  string       `json:"-"` // Не возвращаем в JSON
+	ConnectedAt  time.Time    `json:"connected_at"`
+	Repositories []GitHubRepo `json:"repositories,omitempty"`
 }
 
 type BuildConfig struct {
@@ -107,14 +107,15 @@ type BuildResult struct {
 }
 
 type WebhookConfig struct {
-	ProjectID   string `json:"project_id"`
-	GitHubRepo  string `json:"github_repo"`
-	WebhookURL  string `json:"webhook_url"`
-	WebhookID   int    `json:"webhook_id,omitempty"`
-	Active      bool   `json:"active"`
-	Secret      string `json:"secret"`
-	Events      []string `json:"events"` // push, pull_request и т.д.
-	Branch      string `json:"branch"`    // ветка для авто-деплоя
-	BuildCommand string `json:"build_command"`
-	OutputDir    string `json:"output_dir"`
+	ProjectID    string   `json:"project_id"`
+	GitHubRepo   string   `json:"github_repo"`
+	WebhookURL   string   `json:"webhook_url"`
+	WebhookID    int      `json:"webhook_id,omitempty"`
+	Active       bool     `json:"active"`
+	Secret       string   `json:"secret"`
+	Events       []string `json:"events"` // push, pull_request и т.д.
+	Branch       string   `json:"branch"` // ветка для авто-деплоя
+	BuildCommand string   `json:"build_command"`
+	RootDir      string   `json:"root_dir"`
+	OutputDir    string   `json:"output_dir"`
 }

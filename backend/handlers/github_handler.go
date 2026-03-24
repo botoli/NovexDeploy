@@ -16,6 +16,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"localVercel/internal/deployer"
 )
 
 type GitHubHandler struct {
@@ -159,6 +161,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 		RepoFullName string `json:"repo_full_name"`
 		Branch       string `json:"branch"`
 		BuildCommand string `json:"build_command"`
+		RootDir      string `json:"root_dir"`
 		OutputDir    string `json:"output_dir"`
 	}
 
@@ -166,11 +169,23 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid request", nil))
 		return
 	}
+	if err := deployer.ValidateRootDirInput(req.RootDir); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid root_dir: "+err.Error(), nil))
+		return
+	}
 
 	// Получаем проект из БД
 	var project models.Project
 	if err := db.DB.First(&project, "id = ? AND user_id = ?", projectID, user.ID).Error; err != nil {
 		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
+		return
+	}
+	projectType := normalizeProjectType(project.ProjectType)
+	if !isAllowedProjectType(projectType) {
+		projectType = ProjectTypeBackend
+	}
+	if isFrontendDeployConfig(req.BuildCommand, project.StartCmd, req.OutputDir) {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Frontend deploy is not supported. Use backend or telegram runtime commands", nil))
 		return
 	}
 
@@ -183,6 +198,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 		Events:       []string{"push"},
 		Branch:       req.Branch,
 		BuildCommand: req.BuildCommand,
+		RootDir:      req.RootDir,
 		OutputDir:    req.OutputDir,
 		Secret:       generateSecret(),
 	}
@@ -197,12 +213,17 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	project.Repository = req.RepoFullName
 	project.Branch = req.Branch
 	project.BuildCmd = req.BuildCommand
+	project.RootDir = req.RootDir
 	project.OutputDir = req.OutputDir
 	if project.StartCmd == "" {
 		project.StartCmd = "npm start"
 	}
 	project.WebhookID = webhookConfig.WebhookID
 	project.WebhookSecret = webhookConfig.Secret
+	project.ProjectType = projectType
+	if project.RuntimeState == "" {
+		project.RuntimeState = "configured"
+	}
 
 	db.DB.Save(&project)
 
@@ -210,7 +231,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	// Create Deployment record
 	deployment := models.Deployment{
 		ProjectID: project.ID,
-		Status:    "pending",
+		Status:    "deploying",
 		Branch:    project.Branch,
 		StartedAt: time.Now(),
 		// Commit info might be missing here until we fetch it, or wait for clone
@@ -224,6 +245,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 		"repo_url":      fmt.Sprintf("https://github.com/%s.git", req.RepoFullName), // Construct generic HTTPS clone URL
 		"branch":        project.Branch,
 		"build_cmd":     project.BuildCmd,
+		"root_dir":      project.RootDir,
 		"output_dir":    project.OutputDir,
 	}
 	payloadBytes, _ := json.Marshal(jobPayload)

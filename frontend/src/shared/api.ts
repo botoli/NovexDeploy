@@ -27,6 +27,8 @@ export const api = {
   projects: () => request<any[]>("/v1/projects"),
   createProject: (payload: unknown) =>
     request<any>("/v1/projects", { method: "POST", body: JSON.stringify(payload) }),
+  updateProject: (projectId: string, payload: unknown) =>
+    request<any>(`/v1/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   connectRepo: (projectId: string, payload: unknown) =>
     request<any>(`/v1/projects/${projectId}/repo/connect`, {
       method: "POST",

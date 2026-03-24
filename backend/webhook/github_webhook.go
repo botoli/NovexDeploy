@@ -104,6 +104,7 @@ func (m *GitHubWebhookManager) HandleWebhook(w http.ResponseWriter, r *http.Requ
 			Events:       []string{"push"},
 			Branch:       project.Branch,
 			BuildCommand: project.BuildCmd,
+			RootDir:      project.RootDir,
 			OutputDir:    project.OutputDir,
 			Secret:       project.WebhookSecret,
 		}
@@ -199,6 +200,7 @@ func (m *GitHubWebhookManager) handlePushEvent(projectID string, config *models.
 		Branch       string `json:"branch"`
 		ProjectID    string `json:"project_id"`
 		BuildCmd     string `json:"build_cmd"`
+		RootDir      string `json:"root_dir"`
 		OutputDir    string `json:"output_dir"`
 	}
 
@@ -208,6 +210,7 @@ func (m *GitHubWebhookManager) handlePushEvent(projectID string, config *models.
 		RepoURL:      push.Repository.CloneURL,
 		Branch:       deployment.Branch,
 		BuildCmd:     config.BuildCommand,
+		RootDir:      config.RootDir,
 		OutputDir:    config.OutputDir,
 	}
 

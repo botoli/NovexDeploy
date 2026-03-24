@@ -17,6 +17,10 @@ const DeployPage = observer(() => {
   const navigate = useNavigate();
   const [importingRepoId, setImportingRepoId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [rootDir, setRootDir] = useState(".");
+  const [buildCmd, setBuildCmd] = useState("npm ci");
+  const [outputDir, setOutputDir] = useState(".");
+  const [startCmd, setStartCmd] = useState("npm start");
 
   const filteredRepos = useMemo(() => {
     if (!GithubRepo.repos) return [];
@@ -33,10 +37,11 @@ const DeployPage = observer(() => {
         name: repo.name,
         description: repo.description || "",
         framework: "node",
-        project_type: "service",
-        build_command: "npm ci && npm run build",
-        output_dir: "dist",
-        start_command: "npm start",
+        project_type: "backend",
+        build_command: buildCmd,
+        root_dir: rootDir,
+        output_dir: outputDir,
+        start_command: startCmd,
       });
 
       const projectId = created.id;
@@ -45,8 +50,9 @@ const DeployPage = observer(() => {
       await api.connectRepo(projectId, {
         repo_full_name: repo.full_name,
         branch: repo.default_branch,
-        build_command: "npm ci && npm run build",
-        output_dir: "dist",
+        build_command: buildCmd,
+        root_dir: rootDir,
+        output_dir: outputDir,
       });
 
       navigate("/deployments");
@@ -70,15 +76,21 @@ const DeployPage = observer(() => {
         {/* Right side user or nothing, assuming layout handles specific user icon */}
       </header>
 
-      <h1>Let's build something new</h1>
+      <h1>Deploy backend service or Telegram bot</h1>
 
       <div className={styles.inputSection}>
         <div className={styles.inputWrapper}>
           <LinkIcon size={16} className={styles.linkIcon} />
           <input
             type="text"
-            placeholder="Enter a Git repository URL to deploy..."
+            placeholder="Select a repository below (GitHub OAuth required)"
           />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 180px 1fr", gap: 8, marginTop: 10 }}>
+          <input value={rootDir} onChange={(e) => setRootDir(e.target.value)} placeholder="Root dir (.)" />
+          <input value={buildCmd} onChange={(e) => setBuildCmd(e.target.value)} placeholder="Build command" />
+          <input value={outputDir} onChange={(e) => setOutputDir(e.target.value)} placeholder="Output dir (use . for backend runtime root)" />
+          <input value={startCmd} onChange={(e) => setStartCmd(e.target.value)} placeholder="Start command" />
         </div>
       </div>
 
@@ -179,8 +191,7 @@ const DeployPage = observer(() => {
             <div>
               <h3>Create Empty Project</h3>
               <p>
-                Skip Git setup and instantly access Web Analytics, Speed
-                Insights, and other Vercel products.
+                Create a backend/telegram project without repository import.
               </p>
             </div>
           </div>

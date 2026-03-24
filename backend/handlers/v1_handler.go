@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"localVercel/db"
+	"localVercel/internal/deployer"
 	"localVercel/internal/queue"
 	rt "localVercel/internal/runtime"
 	"localVercel/models"
 	"localVercel/utils"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -19,6 +21,8 @@ type V1Handler struct {
 	Queue   queue.Queue
 	Runtime *rt.Manager
 }
+
+var envKeyPattern = regexp.MustCompile(`^[A-Z0-9_]+$`)
 
 func NewV1Handler(base *Handler, q queue.Queue, runtime *rt.Manager) *V1Handler {
 	return &V1Handler{Handler: base, Queue: q, Runtime: runtime}
@@ -44,11 +48,16 @@ func (h *V1Handler) HandlePatchProject(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
 		return
 	}
+	if isFrontendDeployConfig(project.BuildCmd, project.StartCmd, project.OutputDir) {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Frontend deploy is not supported", nil))
+		return
+	}
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		BuildCmd    string `json:"build_command"`
 		StartCmd    string `json:"start_command"`
+		RootDir     string `json:"root_dir"`
 		OutputDir   string `json:"output_dir"`
 		Branch      string `json:"branch"`
 		ProjectType string `json:"project_type"`
@@ -72,11 +81,26 @@ func (h *V1Handler) HandlePatchProject(w http.ResponseWriter, r *http.Request) {
 	if req.OutputDir != "" {
 		project.OutputDir = req.OutputDir
 	}
+	if req.RootDir != "" {
+		if err := deployer.ValidateRootDirInput(req.RootDir); err != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid root_dir: "+err.Error(), nil))
+			return
+		}
+		project.RootDir = req.RootDir
+	}
 	if req.Branch != "" {
 		project.Branch = req.Branch
 	}
 	if req.ProjectType != "" {
-		project.ProjectType = req.ProjectType
+		projectType := normalizeProjectType(req.ProjectType)
+		if !isAllowedProjectType(projectType) {
+			utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "project_type must be backend or telegram", nil))
+			return
+		}
+		project.ProjectType = projectType
+	}
+	if project.RuntimeState == "" {
+		project.RuntimeState = "configured"
 	}
 	db.DB.Save(project)
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Project updated", project))
@@ -111,7 +135,7 @@ func (h *V1Handler) HandleManualDeploy(w http.ResponseWriter, r *http.Request) {
 
 	deployment := models.Deployment{
 		ProjectID: project.ID,
-		Status:    "pending",
+		Status:    "deploying",
 		Branch:    project.Branch,
 		StartedAt: time.Now(),
 	}
@@ -126,6 +150,7 @@ func (h *V1Handler) HandleManualDeploy(w http.ResponseWriter, r *http.Request) {
 		"repo_url":      fmt.Sprintf("https://github.com/%s.git", project.Repository),
 		"branch":        project.Branch,
 		"build_cmd":     project.BuildCmd,
+		"root_dir":      project.RootDir,
 		"output_dir":    project.OutputDir,
 	}
 	b, _ := json.Marshal(payload)
@@ -260,6 +285,8 @@ func (h *V1Handler) runtimeAction(w http.ResponseWriter, r *http.Request, action
 	case "restart":
 		info, err := h.Runtime.Restart(project.ID, artifactDir, project.StartCmd, env)
 		if err != nil {
+			project.RuntimeState = "failed"
+			db.DB.Save(project)
 			utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, err.Error(), nil))
 			return
 		}
@@ -301,10 +328,23 @@ func (h *V1Handler) HandleTelegramConfig(w http.ResponseWriter, r *http.Request)
 		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid body", nil))
 		return
 	}
-	cfg := models.TelegramConfig{ProjectID: project.ID, Mode: req.Mode, BotToken: req.BotToken, WebhookURL: req.WebhookURL, IsActive: true}
+	mode := strings.ToLower(strings.TrimSpace(req.Mode))
+	if mode != "polling" && mode != "webhook" {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Telegram mode must be polling or webhook", nil))
+		return
+	}
+	if strings.TrimSpace(req.BotToken) == "" {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "bot_token is required", nil))
+		return
+	}
+	if mode == "webhook" && strings.TrimSpace(req.WebhookURL) == "" {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "webhook_url is required for webhook mode", nil))
+		return
+	}
+	cfg := models.TelegramConfig{ProjectID: project.ID, Mode: mode, BotToken: req.BotToken, WebhookURL: req.WebhookURL, IsActive: true}
 	db.DB.Where("project_id = ?", project.ID).Delete(&models.TelegramConfig{})
 	db.DB.Create(&cfg)
-	project.ProjectType = "telegram_bot"
+	project.ProjectType = ProjectTypeTelegram
 	db.DB.Save(project)
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Telegram config saved", map[string]interface{}{
 		"project_id": project.ID,
@@ -372,7 +412,16 @@ func (h *V1Handler) HandleListEnv(w http.ResponseWriter, r *http.Request) {
 	}
 	var vars []models.EnvVar
 	db.DB.Where("project_id = ?", project.ID).Find(&vars)
-	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Env vars", vars))
+	masked := make([]map[string]string, 0, len(vars))
+	for _, item := range vars {
+		masked = append(masked, map[string]string{
+			"id":           item.ID,
+			"key":          item.Key,
+			"value":        item.Value,
+			"masked_value": maskValue(item.Value),
+		})
+	}
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Env vars", masked))
 }
 
 func (h *V1Handler) HandleUpsertEnv(w http.ResponseWriter, r *http.Request) {
@@ -390,8 +439,17 @@ func (h *V1Handler) HandleUpsertEnv(w http.ResponseWriter, r *http.Request) {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Key == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid body", nil))
+		return
+	}
+	req.Key = strings.TrimSpace(strings.ToUpper(req.Key))
+	if req.Key == "" || !envKeyPattern.MatchString(req.Key) {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid key format. Use [A-Z0-9_]+", nil))
+		return
+	}
+	if strings.TrimSpace(req.Value) == "" {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Env value cannot be empty", nil))
 		return
 	}
 	var variable models.EnvVar
@@ -402,7 +460,7 @@ func (h *V1Handler) HandleUpsertEnv(w http.ResponseWriter, r *http.Request) {
 		variable.Value = req.Value
 		db.DB.Save(&variable)
 	}
-	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Env var saved", variable))
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Env var saved. Runtime restart is required to apply changes", variable))
 }
 
 func (h *V1Handler) HandleDeleteEnv(w http.ResponseWriter, r *http.Request) {
@@ -449,4 +507,14 @@ func (h *V1Handler) ownedProject(projectID, userID string) (*models.Project, boo
 		return nil, false
 	}
 	return &project, true
+}
+
+func maskValue(value string) string {
+	if value == "" {
+		return ""
+	}
+	if len(value) <= 4 {
+		return "****"
+	}
+	return value[:2] + strings.Repeat("*", len(value)-4) + value[len(value)-2:]
 }

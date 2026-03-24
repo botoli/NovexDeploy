@@ -62,6 +62,7 @@ type DeployPayload struct {
 	Branch       string `json:"branch"`
 	ProjectID    string `json:"project_id"`
 	BuildCmd     string `json:"build_cmd"`
+	RootDir      string `json:"root_dir"`
 	OutputDir    string `json:"output_dir"`
 }
 
@@ -81,29 +82,38 @@ func (w *Worker) processDeployJob(ctx context.Context, job *queue.Job) {
 	deployment.Status = "building"
 	deployment.StartedAt = time.Now()
 	db.DB.Save(&deployment)
+	db.DB.Model(&models.Project{}).Where("id = ?", payload.ProjectID).Updates(map[string]interface{}{
+		"runtime_state": "deploying",
+	})
 
 	// 1. Build
 	// Detect framework first if not provided?
 	// For now assume Deployer handles logic or payload has basic info.
 	// We'll pass "" as framework to let Deployer auto-detect
-	logs, err := w.Deployer.BuildProject(ctx, payload.DeploymentID, payload.RepoURL, payload.Branch, "", payload.BuildCmd)
+	logs, err := w.Deployer.BuildProject(ctx, payload.DeploymentID, payload.RepoURL, payload.Branch, payload.RootDir, "", payload.BuildCmd)
 
 	deployment.Logs = logs
 	if err != nil {
 		deployment.Status = "failed"
 		deployment.CompletedAt = time.Now()
 		db.DB.Save(&deployment)
+		db.DB.Model(&models.Project{}).Where("id = ?", payload.ProjectID).Updates(map[string]interface{}{
+			"runtime_state": "failed",
+		})
 		log.Printf("Build failed for job %s: %v", job.ID, err)
 		return
 	}
 
 	// 2. Deploy (Copy artifacts)
-	finalPath, err := w.Deployer.DeployArtifacts(payload.DeploymentID, payload.OutputDir)
+	finalPath, err := w.Deployer.DeployArtifacts(payload.DeploymentID, payload.RootDir, payload.OutputDir)
 	if err != nil {
 		deployment.Status = "failed"
 		deployment.Logs += "\nDeployment error: " + err.Error()
 		deployment.CompletedAt = time.Now()
 		db.DB.Save(&deployment)
+		db.DB.Model(&models.Project{}).Where("id = ?", payload.ProjectID).Updates(map[string]interface{}{
+			"runtime_state": "failed",
+		})
 		log.Printf("Deploy failed for job %s: %v", job.ID, err)
 		return
 	}

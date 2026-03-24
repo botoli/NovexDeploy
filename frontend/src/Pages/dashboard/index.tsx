@@ -33,7 +33,7 @@ export function DashboardPage() {
           <div className={styles.list}>
             {projects.map((p) => (
               <div key={p.id} className={styles.row}>
-                <b>{p.name}</b> - {p.project_type || "service"} - {p.runtime_state || "stopped"}
+                <b>{p.name}</b> - {p.project_type || "backend"} - {p.runtime_state || "configured"}
               </div>
             ))}
             {projects.length === 0 && <div>No projects</div>}

@@ -3,9 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"localVercel/db"
+	"localVercel/internal/deployer"
 	"localVercel/models"
 	"localVercel/utils"
 	"net/http"
+	"strings"
 )
 
 type ProjectHandler struct {
@@ -47,6 +49,7 @@ func (h *ProjectHandler) HandleCreateProject(w http.ResponseWriter, r *http.Requ
 		ProjectType  string `json:"project_type"`
 		BuildCommand string `json:"build_command"`
 		StartCommand string `json:"start_command"`
+		RootDir      string `json:"root_dir"`
 		OutputDir    string `json:"output_dir"`
 	}
 
@@ -59,19 +62,35 @@ func (h *ProjectHandler) HandleCreateProject(w http.ResponseWriter, r *http.Requ
 		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Project name is required", nil))
 		return
 	}
+	projectType := normalizeProjectType(req.ProjectType)
+	if !isAllowedProjectType(projectType) {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "project_type must be backend or telegram", nil))
+		return
+	}
+	if err := deployer.ValidateRootDirInput(req.RootDir); err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, h.jsonResponse(false, "Invalid root_dir: "+err.Error(), nil))
+		return
+	}
+	if strings.TrimSpace(req.OutputDir) == "" {
+		req.OutputDir = "dist"
+	}
 
 	project := models.Project{
 		UserID:      user.ID,
 		Name:        req.Name,
 		Description: req.Description,
 		Framework:   req.Framework,
-		ProjectType: req.ProjectType,
+		ProjectType: projectType,
 		BuildCmd:    req.BuildCommand,
 		StartCmd:    req.StartCommand,
+		RootDir:     req.RootDir,
 		OutputDir:   req.OutputDir,
 	}
 	if project.ProjectType == "" {
-		project.ProjectType = "service"
+		project.ProjectType = ProjectTypeBackend
+	}
+	if project.RootDir == "" {
+		project.RootDir = "."
 	}
 
 	// Important: We need to handle the ID generation if GORM doesn't correctly use the default function

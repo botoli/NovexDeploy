@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 type Deployer struct {
@@ -50,7 +51,7 @@ func (d *Deployer) executeShellCommand(dir, command string) (string, error) {
 }
 
 // BuildProject performs the build step
-func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL string, branch string, framework string, buildCmd string) (string, error) {
+func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL string, branch string, rootDir string, framework string, buildCmd string) (string, error) {
 	buildPath := filepath.Join(d.BaseDir, jobID)
 
 	// 1. Clone
@@ -65,12 +66,17 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 		return "", fmt.Errorf("git clone failed: %v", err)
 	}
 
+	workDir, err := resolveRootDir(buildPath, rootDir)
+	if err != nil {
+		return "", err
+	}
+
 	// 2. Build
 	log.Printf("Building project %s with %s", jobID, framework)
 
 	// Auto-detect framework if missing
 	if framework == "" {
-		detected, err := d.DetectFramework(buildPath)
+		detected, err := d.DetectFramework(workDir)
 		if err != nil {
 			log.Printf("Framework detection error: %v, defaulting to static", err)
 			detected = "static"
@@ -99,7 +105,7 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 		// Run build in container
 		// Example: docker run --rm -v /abs/path:/app -w /app node:18-alpine sh -c "npm install && npm run build"
 
-		absPath, _ := filepath.Abs(buildPath)
+		absPath, _ := filepath.Abs(workDir)
 		dockerArgs := []string{
 			"run", "--rm",
 			"-v", fmt.Sprintf("%s:/app", absPath),
@@ -108,13 +114,13 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 			"sh", "-c", buildCmd,
 		}
 
-		out, err := d.executeCommand(buildPath, "docker", dockerArgs...)
+		out, err := d.executeCommand(workDir, "docker", dockerArgs...)
 		outputLog = out
 		if err != nil {
 			return outputLog, fmt.Errorf("docker build failed: %v", err)
 		}
 	} else {
-		out, err := d.executeShellCommand(buildPath, buildCmd)
+		out, err := d.executeShellCommand(workDir, buildCmd)
 		outputLog = out
 		if err != nil {
 			return outputLog, fmt.Errorf("local build failed: %v", err)
@@ -125,16 +131,20 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 }
 
 // DeployArtifacts handles the deployment (copying to final location)
-func (d *Deployer) DeployArtifacts(jobID string, outputDir string) (string, error) {
+func (d *Deployer) DeployArtifacts(jobID string, rootDir string, outputDir string) (string, error) {
 	// Assume buildPath is <BaseDir>/<jobID>
 	buildPath := filepath.Join(d.BaseDir, jobID)
-	artifactPath := filepath.Join(buildPath, outputDir)
+	workDir, err := resolveRootDir(buildPath, rootDir)
+	if err != nil {
+		return "", err
+	}
+	artifactPath := filepath.Join(workDir, outputDir)
 
 	finalPath := filepath.Join(d.DeployDir, jobID)
 
 	// Verify artifact path exists
 	if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("output directory %s not found in %s", outputDir, buildPath)
+		return "", fmt.Errorf("output directory %s not found in %s", outputDir, workDir)
 	}
 
 	// Move/Copy artifacts
@@ -152,6 +162,43 @@ func (d *Deployer) DeployArtifacts(jobID string, outputDir string) (string, erro
 	}
 
 	return finalPath, nil
+}
+
+func resolveRootDir(repoDir, rootDir string) (string, error) {
+	if err := ValidateRootDirInput(rootDir); err != nil {
+		return "", err
+	}
+	normalized := strings.TrimSpace(rootDir)
+	if normalized == "" {
+		normalized = "."
+	}
+	normalized = filepath.Clean(normalized)
+	finalPath := filepath.Join(repoDir, normalized)
+	absRepo, _ := filepath.Abs(repoDir)
+	absFinal, _ := filepath.Abs(finalPath)
+	if !strings.HasPrefix(absFinal, absRepo) {
+		return "", fmt.Errorf("invalid root_dir: escapes repository")
+	}
+	info, err := os.Stat(finalPath)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("root_dir does not exist: %s", rootDir)
+	}
+	return finalPath, nil
+}
+
+func ValidateRootDirInput(rootDir string) error {
+	normalized := strings.TrimSpace(rootDir)
+	if normalized == "" {
+		return nil
+	}
+	normalized = filepath.Clean(normalized)
+	if normalized == ".." || strings.HasPrefix(normalized, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("must be inside repository")
+	}
+	if filepath.IsAbs(normalized) {
+		return fmt.Errorf("must be a relative path")
+	}
+	return nil
 }
 
 func copyDir(src, dst string) error {

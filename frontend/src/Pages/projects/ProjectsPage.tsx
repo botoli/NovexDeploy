@@ -6,7 +6,8 @@ import { api } from "../../shared/api";
 export function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [name, setName] = useState("");
-  const [projectType, setProjectType] = useState("service");
+  const [projectType, setProjectType] = useState("backend");
+  const [rootDir, setRootDir] = useState(".");
   const [loading, setLoading] = useState(false);
 
   const loadProjects = async () => {
@@ -29,13 +30,15 @@ export function ProjectsPage() {
       await api.createProject({
         name,
         description: "",
-        framework: projectType === "telegram_bot" ? "telegram" : "node",
+        framework: projectType === "telegram" ? "telegram" : "node",
         project_type: projectType,
         build_command: "npm ci && npm run build",
+        root_dir: rootDir,
         output_dir: "dist",
         start_command: "npm start",
       });
       setName("");
+      setRootDir(".");
       await loadProjects();
     } finally {
       setLoading(false);
@@ -70,9 +73,15 @@ export function ProjectsPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Project name"
           />
+          <input
+            className={styles.input}
+            value={rootDir}
+            onChange={(e) => setRootDir(e.target.value)}
+            placeholder="Root dir (.)"
+          />
           <select className={styles.select} value={projectType} onChange={(e) => setProjectType(e.target.value)}>
-            <option value="service">Backend Service</option>
-            <option value="telegram_bot">Telegram Bot</option>
+            <option value="backend">Backend Service</option>
+            <option value="telegram">Telegram Bot</option>
           </select>
           <button className={styles.button} disabled={loading} onClick={createProject}>
             {loading ? "Creating..." : "Create project"}
@@ -82,9 +91,10 @@ export function ProjectsPage() {
           {projects.map((p) => (
             <div key={p.id} className={styles.card}>
               <b>{p.name}</b>
-              <div className={styles.meta}>Type: {p.project_type || "service"}</div>
+              <div className={styles.meta}>Type: {p.project_type || "backend"}</div>
               <div className={styles.meta}>Repo: {p.repository || "not connected"}</div>
               <div className={styles.meta}>Branch: {p.branch || "main"}</div>
+              <div className={styles.meta}>Root: {p.root_dir || "."}</div>
               <div className={styles.meta}>Runtime: {p.runtime_state || "stopped"}</div>
             </div>
           ))}

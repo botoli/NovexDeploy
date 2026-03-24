@@ -42,12 +42,13 @@ type Project struct {
 	Repository    string         `json:"repository"`
 	Branch        string         `json:"branch" default:"main"`
 	Framework     string         `json:"framework"`
-	ProjectType   string         `gorm:"default:service" json:"project_type"` // service | telegram_bot
+	ProjectType   string         `gorm:"default:backend" json:"project_type"` // backend | telegram
 	BuildCmd      string         `json:"build_command"`
 	StartCmd      string         `json:"start_command"`
+	RootDir       string         `gorm:"default:." json:"root_dir"`
 	OutputDir     string         `json:"output_dir" default:"dist"`
 	RuntimePort   int            `json:"runtime_port"`
-	RuntimeState  string         `gorm:"default:stopped" json:"runtime_state"`
+	RuntimeState  string         `gorm:"default:configured" json:"runtime_state"` // configured|deploying|running|failed|stopped
 	EnvVars       []EnvVar       `json:"env_vars,omitempty" gorm:"foreignKey:ProjectID"`
 	Deployments   []Deployment   `json:"deployments,omitempty" gorm:"foreignKey:ProjectID"`
 	WebhookID     int            `json:"webhook_id,omitempty"`
@@ -67,7 +68,7 @@ type Deployment struct {
 	gorm.Model
 	ID           string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	ProjectID    string    `gorm:"not null;index" json:"project_id"`
-	Status       string    `json:"status"` // pending, building, ready, failed
+	Status       string    `json:"status"` // deploying|building|ready|failed|cancelled
 	CommitSHA    string    `json:"commit_sha"`
 	CommitMsg    string    `json:"commit_message"`
 	Branch       string    `json:"branch"`
