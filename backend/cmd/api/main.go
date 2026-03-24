@@ -9,10 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	_ "localVercel/docs"
-
 	"github.com/joho/godotenv"
-	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -39,14 +36,11 @@ func main() {
 	mux := http.NewServeMux()
 	application.RegisterRoutes(mux)
 
-	// Swagger UI
-	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
-
 	// Статические файлы для превью билдов
 	mux.Handle("/preview/", http.StripPrefix("/preview/", http.FileServer(http.Dir("./builds"))))
 
 	// Оборачиваем в middleware: сначала CORS, потом логирование
-	handler := middleware.CorsMiddleware(middleware.WithLogging(mux))
+	handler := middleware.RateLimitMiddleware(middleware.CorsMiddleware(middleware.WithLogging(mux)))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -55,9 +49,8 @@ func main() {
 	addr := ":" + port
 
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
-	log.Printf("📚 Swagger UI: http://localhost%s/swagger/", addr)
 	log.Printf("🔗 GitHub OAuth: http://localhost%s/auth/github/login", addr)
-	
+
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("❌ Server failed: %v", err)
 	}

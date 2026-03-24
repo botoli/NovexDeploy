@@ -1,17 +1,22 @@
+@use "../../GlobalStyles/variables.scss" as vars;
+
 .container {
-  width: 200px;
+  width: 240px;
   height: 100vh;
-  background: #0b0b0c;
-  border-right: 1px solid #1c1c1f;
+  position: sticky;
+  top: 0;
+  background: vars.$color-surface-2;
+  border-right: 1px solid vars.$color-border;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 16px 18px;
+  align-items: stretch;
+  padding: 16px;
 }
 
 .logo {
   font-size: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .nav {
@@ -24,29 +29,28 @@
 
 .item {
   width: 100%;
-  height: 44px;
+  height: 42px;
   display: flex;
   align-items: center;
-  justify-content: start;
+  justify-content: flex-start;
   border-radius: 10px;
   cursor: pointer;
-  color: #a1a1aa;
-  transition: all 0.1s ease;
+  color: vars.$text-secondary;
+  transition: all vars.$transition-fast;
 
   &:hover {
-    transform: scale(1.05);
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    background: vars.$bg-hover;
+    color: vars.$text-primary;
   }
 }
 .label {
   margin-left: 12px;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 500;
 }
 .active {
-  background: rgba(124, 58, 237, 0.15);
-  color: #7c3aed;
+  background: vars.$bg-selected;
+  color: vars.$accent-primary;
 }
 .icon {
   margin-left: 10px;
@@ -56,12 +60,15 @@
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #111113;
-  margin-bottom: 36px;
+  width: 100%;
+  border-radius: 10px;
+  background: vars.$color-surface;
+  margin-bottom: 12px;
+  padding: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  color: vars.$text-secondary;
+  font-size: 12px;
+  overflow: hidden;
 }

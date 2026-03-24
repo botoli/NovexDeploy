@@ -6,7 +6,6 @@ import (
 	"localVercel/models"
 	"localVercel/utils"
 	"net/http"
-	"time"
 )
 
 type ProjectHandler struct {
@@ -21,48 +20,34 @@ func NewProjectHandler(base *Handler) *ProjectHandler {
 
 // HandleListProjects возвращает список проектов пользователя
 func (h *ProjectHandler) HandleListProjects(w http.ResponseWriter, r *http.Request) {
-	// Получаем пользователя из сессии
-	cookie, err := r.Cookie("session_token")
+	user, err := currentUserFromSession(r)
 	if err != nil {
 		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
 		return
 	}
 
-	var session models.Session
-	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
-		return
-	}
-
 	var projects []models.Project
-	db.DB.Where("user_id = ?", session.UserID).Find(&projects)
+	db.DB.Where("user_id = ?", user.ID).Find(&projects)
 
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Projects retrieved", projects))
 }
 
 // HandleCreateProject создает новый проект
 func (h *ProjectHandler) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
-	// Получаем пользователя из сессии
-	cookie, err := r.Cookie("session_token")
+	user, err := currentUserFromSession(r)
 	if err != nil {
 		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
 		return
 	}
 
-	var session models.Session
-	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
-		return
-	}
-
 	var req struct {
-		Name          string `json:"name"`
-		Description   string `json:"description"`
-		Framework     string `json:"framework"`
-		BuildCommand  string `json:"build_command"`
-		OutputDir     string `json:"output_dir"`
-		// Repository info can be passed here to preload, but connecting happens via separate endpoint usually
-		// but we can support setting it here if needed. For now let's keep it minimal.
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		Framework    string `json:"framework"`
+		ProjectType  string `json:"project_type"`
+		BuildCommand string `json:"build_command"`
+		StartCommand string `json:"start_command"`
+		OutputDir    string `json:"output_dir"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -76,20 +61,25 @@ func (h *ProjectHandler) HandleCreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	project := models.Project{
-		UserID:      session.UserID,
+		UserID:      user.ID,
 		Name:        req.Name,
 		Description: req.Description,
 		Framework:   req.Framework,
+		ProjectType: req.ProjectType,
 		BuildCmd:    req.BuildCommand,
+		StartCmd:    req.StartCommand,
 		OutputDir:   req.OutputDir,
 	}
+	if project.ProjectType == "" {
+		project.ProjectType = "service"
+	}
 
-	// Important: We need to handle the ID generation if GORM doesn't correctly use the default function 
-	// or if the struct definition with gorm.Model is problematic. 
+	// Important: We need to handle the ID generation if GORM doesn't correctly use the default function
+	// or if the struct definition with gorm.Model is problematic.
 	// Assuming the `default:gen_random_uuid()` works in Postgres.
-	
+
 	if result := db.DB.Create(&project); result.Error != nil {
-		utils.WriteJSON(w, http.StatusInternalServerError, h.jsonResponse(false, "Failed to create project: " + result.Error.Error(), nil))
+		utils.WriteJSON(w, http.StatusInternalServerError, h.jsonResponse(false, "Failed to create project: "+result.Error.Error(), nil))
 		return
 	}
 
@@ -99,21 +89,18 @@ func (h *ProjectHandler) HandleCreateProject(w http.ResponseWriter, r *http.Requ
 // HandleGetProject получает проект по ID
 func (h *ProjectHandler) HandleGetProject(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("id")
+	if projectID == "" {
+		projectID = r.PathValue("projectId")
+	}
 
-	cookie, err := r.Cookie("session_token")
+	user, err := currentUserFromSession(r)
 	if err != nil {
 		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
 		return
 	}
 
-	var session models.Session
-	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
-		return
-	}
-
 	var project models.Project
-	if err := db.DB.Where("id = ? AND user_id = ?", projectID, session.UserID).First(&project).Error; err != nil {
+	if err := db.DB.Where("id = ? AND user_id = ?", projectID, user.ID).First(&project).Error; err != nil {
 		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
 		return
 	}

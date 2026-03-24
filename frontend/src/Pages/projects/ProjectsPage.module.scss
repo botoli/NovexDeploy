@@ -1,6 +1,79 @@
+@use "../../GlobalStyles/variables.scss" as vars;
+
 .Page {
-  display: flex;
-  flex-flow: row nowrap;
-  width: 100%;
   min-height: 100vh;
+}
+
+.root {
+  max-width: 1100px;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: 28px;
+}
+
+.creatorRow {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.input,
+.select {
+  height: 38px;
+  border: 1px solid vars.$color-border;
+  border-radius: 8px;
+  background: vars.$color-surface;
+  color: vars.$text-primary;
+  padding: 0 10px;
+}
+
+.button {
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: vars.$accent-primary;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid vars.$color-border;
+  background: vars.$color-surface;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.meta {
+  color: vars.$text-secondary;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.empty {
+  border: 1px dashed vars.$color-border;
+  border-radius: 10px;
+  padding: 18px;
+  color: vars.$text-secondary;
+}
+
+.authBox {
+  border: 1px solid vars.$color-border;
+  border-radius: 10px;
+  padding: 16px;
+  background: vars.$color-surface;
+}
+
+.userInfo {
+  margin-top: 18px;
+  color: vars.$text-secondary;
 }

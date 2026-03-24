@@ -1,3 +1,66 @@
+@use "../../GlobalStyles/variables.scss" as vars;
+
 .root {
-  
+  min-height: 100vh;
+}
+
+.title {
+  margin: 0 0 12px;
+}
+
+.select {
+  height: 38px;
+  min-width: 240px;
+  border: 1px solid vars.$color-border;
+  border-radius: 8px;
+  background: vars.$color-surface;
+  color: vars.$text-primary;
+  padding: 0 10px;
+}
+
+.card {
+  margin-top: 14px;
+  border: 1px solid vars.$color-border;
+  border-radius: 10px;
+  background: vars.$color-surface;
+  padding: 12px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.input,
+.btn {
+  height: 36px;
+  border-radius: 8px;
+}
+
+.input {
+  border: 1px solid vars.$color-border;
+  background: #0f0f12;
+  color: vars.$text-primary;
+  padding: 0 10px;
+}
+
+.btn {
+  border: 0;
+  background: vars.$accent-primary;
+  color: #fff;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.envList {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.envItem {
+  color: vars.$text-secondary;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 4px;
 }

@@ -4,16 +4,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 type Deployer struct {
-	BaseDir      string
-	DeployDir    string
-	UseDocker    bool // Use Docker for builds? (Security)
+	BaseDir   string
+	DeployDir string
+	UseDocker bool
 }
 
 func NewDeployer() *Deployer {
@@ -21,7 +23,7 @@ func NewDeployer() *Deployer {
 	return &Deployer{
 		BaseDir:   filepath.Join(cwd, "workspace", "builds"),
 		DeployDir: filepath.Join(cwd, "workspace", "deployments"),
-		UseDocker: true,
+		UseDocker: os.Getenv("USE_DOCKER_BUILDS") == "1",
 	}
 }
 
@@ -40,10 +42,17 @@ func (d *Deployer) executeCommand(dir string, name string, args ...string) (stri
 	return out.String(), nil
 }
 
+func (d *Deployer) executeShellCommand(dir, command string) (string, error) {
+	if runtime.GOOS == "windows" {
+		return d.executeCommand(dir, "cmd", "/C", command)
+	}
+	return d.executeCommand(dir, "sh", "-c", command)
+}
+
 // BuildProject performs the build step
 func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL string, branch string, framework string, buildCmd string) (string, error) {
 	buildPath := filepath.Join(d.BaseDir, jobID)
-	
+
 	// 1. Clone
 	if err := os.MkdirAll(buildPath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create build dir: %v", err)
@@ -68,7 +77,7 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 		}
 		framework = detected
 		log.Printf("Autodetected framework: %s", framework)
-		
+
 		// Also update buildCmd if missing
 		if buildCmd == "" {
 			buildCmd = d.GetBuildCommand(framework)
@@ -89,7 +98,7 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 
 		// Run build in container
 		// Example: docker run --rm -v /abs/path:/app -w /app node:18-alpine sh -c "npm install && npm run build"
-		
+
 		absPath, _ := filepath.Abs(buildPath)
 		dockerArgs := []string{
 			"run", "--rm",
@@ -98,15 +107,14 @@ func (d *Deployer) BuildProject(ctx context.Context, jobID string, repoURL strin
 			image,
 			"sh", "-c", buildCmd,
 		}
-		
+
 		out, err := d.executeCommand(buildPath, "docker", dockerArgs...)
 		outputLog = out
 		if err != nil {
 			return outputLog, fmt.Errorf("docker build failed: %v", err)
 		}
 	} else {
-		// Fallback to local execution (INSECURE)
-		out, err := d.executeCommand(buildPath, "sh", "-c", buildCmd)
+		out, err := d.executeShellCommand(buildPath, buildCmd)
 		outputLog = out
 		if err != nil {
 			return outputLog, fmt.Errorf("local build failed: %v", err)
@@ -121,7 +129,7 @@ func (d *Deployer) DeployArtifacts(jobID string, outputDir string) (string, erro
 	// Assume buildPath is <BaseDir>/<jobID>
 	buildPath := filepath.Join(d.BaseDir, jobID)
 	artifactPath := filepath.Join(buildPath, outputDir)
-	
+
 	finalPath := filepath.Join(d.DeployDir, jobID)
 
 	// Verify artifact path exists
@@ -134,15 +142,53 @@ func (d *Deployer) DeployArtifacts(jobID string, outputDir string) (string, erro
 		return "", err
 	}
 
-	// Simple copy (recursive)
-	// In production, upload to S3 here
 	log.Printf("Deploying artifacts from %s to %s", artifactPath, finalPath)
-	
-	// Use 'cp -r' for simplicity
-	_, err := d.executeCommand(buildPath, "cp", "-r", outputDir, finalPath)
-	if err != nil {
-		return "", fmt.Errorf("deployment copy failed: %v", err)
+
+	if err := os.RemoveAll(finalPath); err != nil {
+		return "", fmt.Errorf("failed to cleanup target dir: %w", err)
+	}
+	if err := copyDir(artifactPath, finalPath); err != nil {
+		return "", fmt.Errorf("deployment copy failed: %w", err)
 	}
 
 	return finalPath, nil
+}
+
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(dst, relPath)
+		if info.IsDir() {
+			return os.MkdirAll(targetPath, info.Mode())
+		}
+		return copyFile(path, targetPath, info.Mode())
+	})
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return nil
 }

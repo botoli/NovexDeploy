@@ -4,16 +4,14 @@ import { ArrowBack } from "@mui/icons-material";
 import {
   Link as LinkIcon,
   Search,
-  ChevronDown,
   FilePlus,
-  GitBranch,
   Lock,
-  Globe,
+  Globe
 } from "lucide-react";
 import styles from "./index.module.scss";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { GithubRepo } from "../../Store/Repos.store";
-import { GithubUser } from "../../Store/GithubInfo.store";
+import { api } from "../../shared/api";
 
 const DeployPage = observer(() => {
   const navigate = useNavigate();
@@ -31,41 +29,27 @@ const DeployPage = observer(() => {
     setImportingRepoId(repo.id);
     try {
       // 1. Create Project
-      const createRes = await fetch("/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: repo.name,
-          description: repo.description || "",
-          framework: "vite", // Default, can be detected later
-          build_command: "npm run build",
-          output_dir: "dist",
-        }),
+      const created = await api.createProject({
+        name: repo.name,
+        description: repo.description || "",
+        framework: "node",
+        project_type: "service",
+        build_command: "npm ci && npm run build",
+        output_dir: "dist",
+        start_command: "npm start",
       });
 
-      if (!createRes.ok) throw new Error("Failed to create project");
-      const createData = await createRes.json();
-      if (!createData.ok) throw new Error(createData.message);
-
-      const projectId = createData.data.id;
+      const projectId = created.id;
 
       // 2. Connect Repo & Trigger Build
-      const connectRes = await fetch(`/projects/${projectId}/github/repo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repo_full_name: repo.full_name,
-          branch: repo.default_branch,
-          build_command: "npm run build",
-          output_dir: "dist",
-        }),
+      await api.connectRepo(projectId, {
+        repo_full_name: repo.full_name,
+        branch: repo.default_branch,
+        build_command: "npm ci && npm run build",
+        output_dir: "dist",
       });
 
-      if (!connectRes.ok) throw new Error("Failed to connect repository");
-      const connectData = await connectRes.json();
-      if (!connectData.ok) throw new Error(connectData.message);
-
-      navigate("/dashboard");
+      navigate("/deployments");
     } catch (err: any) {
       alert("Error importing repository: " + err.message);
     } finally {
@@ -76,10 +60,10 @@ const DeployPage = observer(() => {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Link to="/dashboard" className={styles.backLink}>
+        <a href="/dashboard" className={styles.backLink}>
           <ArrowBack fontSize="small" />
           <span>Back</span>
-        </Link>
+        </a>
 
         {/* Center title or logo could go here */}
 

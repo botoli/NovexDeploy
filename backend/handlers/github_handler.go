@@ -24,15 +24,27 @@ type GitHubHandler struct {
 	clientID       string
 	clientSecret   string
 	redirectURL    string
+	frontendURL    string
+	apiBaseURL     string
 }
 
 func NewGitHubHandler(base *Handler, q queue.Queue) *GitHubHandler {
+	apiBaseURL := os.Getenv("API_BASE_URL")
+	if apiBaseURL == "" {
+		apiBaseURL = "http://localhost:8888"
+	}
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5432"
+	}
 	return &GitHubHandler{
 		Handler:        base,
 		webhookManager: webhook.NewGitHubWebhookManager(q),
 		clientID:       os.Getenv("GITHUB_CLIENT_ID"),
 		clientSecret:   os.Getenv("GITHUB_CLIENT_SECRET"),
-		redirectURL:    "http://localhost:8888/auth/github/callback",
+		redirectURL:    strings.TrimRight(apiBaseURL, "/") + "/auth/github/callback",
+		frontendURL:    strings.TrimRight(frontendURL, "/"),
+		apiBaseURL:     strings.TrimRight(apiBaseURL, "/"),
 	}
 }
 
@@ -53,8 +65,7 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Println("=== GitHub Callback Started ===")
-	log.Println("Code received:", code)
+	log.Println("GitHub callback started")
 
 	// Обмениваем код на токен
 	token, err := h.exchangeCodeForToken(code)
@@ -63,7 +74,7 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 		utils.WriteJSON(w, http.StatusInternalServerError, h.jsonResponse(false, "Failed to exchange code: "+err.Error(), nil))
 		return
 	}
-	log.Println("Token obtained successfully")
+	log.Println("GitHub token obtained")
 
 	// Получаем информацию о пользователе
 	githubUser, err := h.getGitHubUser(token)
@@ -92,9 +103,9 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 			Email:       githubUser.Email,
 			Name:        githubUser.Name,
 			AvatarURL:   githubUser.AvatarURL,
-			GitHubID:    githubUser.ID,           // это сохранится в git_hub_id
-			GitHubLogin: githubUser.Login,        // это сохранится в git_hub_login
-			GitHubToken: token,                    // это сохранится в git_hub_token
+			GitHubID:    githubUser.ID,    // это сохранится в git_hub_id
+			GitHubLogin: githubUser.Login, // это сохранится в git_hub_login
+			GitHubToken: token,            // это сохранится в git_hub_token
 			LastLoginAt: time.Now(),
 		}
 		db.DB.Create(&user)
@@ -115,7 +126,7 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
 	db.DB.Create(&session)
-	log.Println("Session created with token:", sessionToken)
+	log.Println("Session created")
 
 	// Устанавливаем cookie с токеном
 	http.SetCookie(w, &http.Cookie{
@@ -123,36 +134,26 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 		Value:    sessionToken,
 		Expires:  session.ExpiresAt,
 		HttpOnly: true,
+		Secure:   strings.HasPrefix(h.apiBaseURL, "https://"),
 		Path:     "/",
-		Domain:   "localhost",
 		SameSite: http.SameSiteLaxMode,
 	})
 	log.Println("Cookie set")
 
 	// Вместо JSON ответа, делаем редирект на фронтенд
 	log.Println("Redirecting to frontend")
-	http.Redirect(w, r, "http://localhost:5432/projects", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, h.frontendURL+"/projects", http.StatusTemporaryRedirect)
 }
 
 // HandleConnectRepo подключает репозиторий к проекту
 func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectId")
-	
-	// Получаем пользователя из сессии
-	cookie, err := r.Cookie("session_token")
-	if err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
-		return
-	}
 
-	var session models.Session
-	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
+	user, err := currentUserFromSession(r)
+	if err != nil {
 		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
 		return
 	}
-
-	var user models.User
-	db.DB.First(&user, "id = ?", session.UserID)
 
 	var req struct {
 		RepoFullName string `json:"repo_full_name"`
@@ -177,7 +178,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	webhookConfig := &models.WebhookConfig{
 		ProjectID:    projectID,
 		GitHubRepo:   req.RepoFullName,
-		WebhookURL:   fmt.Sprintf("http://localhost:8888/webhook/github/%s", projectID), // В продакшене нужен публичный URL
+		WebhookURL:   fmt.Sprintf("%s/webhook/github/%s", h.apiBaseURL, projectID),
 		Active:       true,
 		Events:       []string{"push"},
 		Branch:       req.Branch,
@@ -197,9 +198,12 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	project.Branch = req.Branch
 	project.BuildCmd = req.BuildCommand
 	project.OutputDir = req.OutputDir
+	if project.StartCmd == "" {
+		project.StartCmd = "npm start"
+	}
 	project.WebhookID = webhookConfig.WebhookID
 	project.WebhookSecret = webhookConfig.Secret
-	
+
 	db.DB.Save(&project)
 
 	// --- FEATURE: Trigger Immediate Build on Connect ---
@@ -223,7 +227,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 		"output_dir":    project.OutputDir,
 	}
 	payloadBytes, _ := json.Marshal(jobPayload)
-	
+
 	job := &queue.Job{
 		ID:        fmt.Sprintf("job_%d", time.Now().UnixNano()),
 		Type:      "deploy",
@@ -244,32 +248,11 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 
 // HandleListRepos возвращает список репозиториев пользователя
 func (h *GitHubHandler) HandleListRepos(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling /git/repos list request")
-	
-	// Получаем пользователя из сессии
-	cookie, err := r.Cookie("session_token")
+	user, err := currentUserFromSession(r)
 	if err != nil {
-		log.Println("Missing session token cookie")
-		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
-		return
-	}
-	log.Println("Session cookie found")
-
-	var session models.Session
-	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
-		log.Printf("Session lookup failed: %v", err)
 		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
 		return
 	}
-	log.Printf("Session OK for user %s", session.UserID)
-
-	var user models.User
-	if err := db.DB.First(&user, "id = ?", session.UserID).Error; err != nil {
-		log.Printf("User lookup failed: %v", err)
-		utils.WriteJSON(w, http.StatusInternalServerError, h.jsonResponse(false, "User not found", nil))
-		return
-	}
-	log.Printf("User loaded: %s, token length: %d", user.GitHubLogin, len(user.GitHubToken))
 
 	repos, err := h.getUserRepos(user.GitHubToken)
 	if err != nil {
@@ -277,18 +260,27 @@ func (h *GitHubHandler) HandleListRepos(w http.ResponseWriter, r *http.Request) 
 		utils.WriteJSON(w, http.StatusBadGateway, h.jsonResponse(false, "Failed to fetch repos from GitHub", nil))
 		return
 	}
-	
-	log.Printf("Returning %d repos to client", len(repos))
+
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Repositories retrieved", repos))
 }
 
 // HandleListBuilds список билдов проекта
 func (h *GitHubHandler) HandleListBuilds(w http.ResponseWriter, r *http.Request) {
+	user, err := currentUserFromSession(r)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
 	projectID := r.PathValue("projectId")
-	
+	var project models.Project
+	if err := db.DB.Where("id = ? AND user_id = ?", projectID, user.ID).First(&project).Error; err != nil {
+		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Project not found", nil))
+		return
+	}
+
 	var deployments []models.Deployment
 	db.DB.Where("project_id = ?", projectID).Order("created_at desc").Find(&deployments)
-	
+
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Builds retrieved", map[string]interface{}{
 		"project_id": projectID,
 		"builds":     deployments,
@@ -297,14 +289,24 @@ func (h *GitHubHandler) HandleListBuilds(w http.ResponseWriter, r *http.Request)
 
 // HandleGetBuild статус билда
 func (h *GitHubHandler) HandleGetBuild(w http.ResponseWriter, r *http.Request) {
+	user, err := currentUserFromSession(r)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
 	buildID := r.PathValue("buildId")
-	
+
 	var deployment models.Deployment
 	if err := db.DB.First(&deployment, "id = ?", buildID).Error; err != nil {
 		utils.WriteJSON(w, http.StatusNotFound, h.jsonResponse(false, "Build not found", nil))
 		return
 	}
-	
+	var project models.Project
+	if err := db.DB.Where("id = ? AND user_id = ?", deployment.ProjectID, user.ID).First(&project).Error; err != nil {
+		utils.WriteJSON(w, http.StatusForbidden, h.jsonResponse(false, "Access denied", nil))
+		return
+	}
+
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Build status", deployment))
 }
 
@@ -316,9 +318,9 @@ func (h *GitHubHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 // Helper methods
 
 func generateSessionToken() string {
-    b := make([]byte, 32)
-    rand.Read(b)
-    return hex.EncodeToString(b)
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func generateSecret() string {
@@ -380,7 +382,7 @@ func (h *GitHubHandler) getGitHubUser(token string) (*models.GitHubUser, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api error: %s", resp.Status)
 	}
@@ -417,8 +419,6 @@ func (h *GitHubHandler) getUserRepos(token string) ([]models.GitHubRepo, error) 
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("GitHub Response (truncated): %.200s", string(bodyBytes)) // Log first 200 chars
-
 	var repos []models.GitHubRepo
 	if err := json.Unmarshal(bodyBytes, &repos); err != nil {
 		log.Printf("Failed to unmarshal repos: %v", err)
@@ -429,7 +429,7 @@ func (h *GitHubHandler) getUserRepos(token string) ([]models.GitHubRepo, error) 
 		repos = []models.GitHubRepo{}
 	}
 	log.Printf("Parsed %d repos from GitHub", len(repos))
-	
+
 	// Если репозиториев 0, это странно для активного пользователя - логируем тело
 	if len(repos) == 0 {
 		log.Println("WARNING: 0 requested repos found. This might be due to auth scopes or empty account.")

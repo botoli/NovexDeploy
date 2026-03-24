@@ -1,17 +1,32 @@
 @use "./variables.scss" as *;
 :root {
-  font-family: "Open Sans", sans-serif;
+  font-family: $font-main;
   background-color: $color-bg;
   color: $text-primary;
 }
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  background: $color-bg;
+  color: $text-primary;
 }
+
 .AllApp {
   display: flex;
-  flex-flow: row nowrap;
+  min-height: 100vh;
 }
+
+.MainContent {
+  flex: 1;
+  padding: $space-6;
+}
+
 a {
   text-decoration: none;
   color: inherit;

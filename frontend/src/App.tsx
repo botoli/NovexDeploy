@@ -1,57 +1,24 @@
-import { Route, Routes } from "react-router";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "./Pages/dashboard";
 import { ProjectsPage } from "./Pages/projects/ProjectsPage";
-import { LeftPanel } from "./Pages/LeftPanel";
 import "./GlobalStyles/App.scss";
 import { useEffect } from "react";
 import { GithubUser } from "./Store/GithubInfo.store";
 import { observer } from "mobx-react-lite";
 import DeployPage from "./Pages/deploy";
 import { GithubRepo } from "./Store/Repos.store";
+import { LeftPanel } from "./Pages/LeftPanel";
+import { DeploymentsPage } from "./Pages/Deployments";
+import { api } from "./shared/api";
+import { SettingsPage } from "./Pages/Overview";
 
 const App = observer(() => {
   const fetchRepos = async () => {
     GithubRepo.setLoading(true);
     try {
-      const response = await fetch("/git/repos", {
-        credentials: "include",
-        headers: {
-          Accept: "application/json", // Явно указываем, что ждем JSON
-        },
-      });
-
-      // Проверяем статус ответа
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Проверяем тип контента
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server didn't return JSON");
-      }
-
-      const data = await response.json();
-      console.log("Full Server Response:", data); // Debug logging
-
-      if (data.ok) {
-        if (data.data) {
-          console.log(
-            "Array info:",
-            Array.isArray(data.data),
-            "Length:",
-            data.data.length,
-          );
-          GithubRepo.setRepos(data.data);
-        } else {
-          console.warn("Data field is missing or null", data);
-          GithubRepo.setRepos([]);
-        }
-      } else {
-        GithubRepo.setError(data.message || "Unknown error");
-      }
+      const repos = await api.repos();
+      GithubRepo.setRepos(repos);
     } catch (err) {
-      console.error("Fetch repos error:", err);
       GithubRepo.setError(
         err instanceof Error ? err.message : "Failed to fetch repos",
       );
@@ -63,31 +30,9 @@ const App = observer(() => {
   const fetchGitHubProfile = async () => {
     GithubUser.setLoading(true);
     try {
-      const response = await fetch("/auth/me", {
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server didn't return JSON");
-      }
-
-      const data = await response.json();
-
-      if (data.ok) {
-        GithubUser.setUser(data.data);
-      } else {
-        GithubUser.setError(data.message || "Unknown error");
-      }
+      const user = await api.me();
+      GithubUser.setUser(user);
     } catch (err) {
-      console.error("Fetch error:", err);
       GithubUser.setError(
         err instanceof Error ? err.message : "Failed to fetch profile",
       );
@@ -107,11 +52,19 @@ const App = observer(() => {
 
   return (
     <div className="AllApp">
-      <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/deploy" element={<DeployPage />} />
-      </Routes>
+      <LeftPanel />
+      <div className="MainContent">
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/deploy" element={<DeployPage />} />
+          <Route path="/deployments" element={<DeploymentsPage />} />
+          <Route path="/logs" element={<DeploymentsPage logsOnly />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </div>
     </div>
   );
 });

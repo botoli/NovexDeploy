@@ -2,6 +2,7 @@ package app
 
 import (
 	"localVercel/internal/queue"
+	"localVercel/internal/runtime"
 	"net/http"
 	"time"
 
@@ -12,11 +13,13 @@ type App struct {
 	startedAt time.Time
 	upgrader  websocket.Upgrader
 	Queue     queue.Queue
+	Runtime   *runtime.Manager
 }
 
 func New(q queue.Queue) *App {
 	return &App{
 		Queue:     q,
+		Runtime:   runtime.NewManager(),
 		startedAt: time.Now(),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,

@@ -1,11 +1,20 @@
 import { makeAutoObservable } from "mobx";
 
+type GitHubUserType = {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
+  github_login?: string;
+  github_id?: number;
+};
+
 export const GithubUser = {
-  user: null,
+  user: null as GitHubUserType | null,
   loading: false,
   error: "",
 
-  setUser(data: any) {
+  setUser(data: GitHubUserType) {
     this.user = data;
     this.error = "";
   },

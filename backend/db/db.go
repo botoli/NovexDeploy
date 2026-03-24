@@ -18,22 +18,22 @@ func InitDB() error {
 	if host == "" {
 		host = "localhost"
 	}
-	
+
 	port := os.Getenv("DB_PORT")
 	if port == "" {
 		port = "5432"
 	}
-	
+
 	user := os.Getenv("DB_USER")
 	if user == "" {
 		user = "postgres"
 	}
-	
+
 	password := os.Getenv("DB_PASSWORD")
 	if password == "" {
 		password = "postgres"
 	}
-	
+
 	dbname := os.Getenv("DB_NAME")
 	if dbname == "" {
 		dbname = "novexdeploy"
@@ -47,7 +47,7 @@ func InitDB() error {
 		Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
@@ -59,8 +59,10 @@ func InitDB() error {
 		&models.EnvVar{},
 		&models.Deployment{},
 		&models.Session{},
+		&models.RuntimeInstance{},
+		&models.TelegramConfig{},
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to migrate database: %v", err)
 	}

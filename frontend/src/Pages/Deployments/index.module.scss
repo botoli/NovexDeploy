@@ -1,3 +1,66 @@
+@use "../../GlobalStyles/variables.scss" as vars;
+
 .root {
-  
+  min-height: 100vh;
+}
+
+.title {
+  margin: 0 0 12px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.select,
+.button {
+  height: 38px;
+  border-radius: 8px;
+}
+
+.select {
+  min-width: 240px;
+  background: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  color: vars.$text-primary;
+  padding: 0 10px;
+}
+
+.button {
+  border: 0;
+  padding: 0 12px;
+  background: vars.$accent-primary;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  border: 1px solid vars.$color-border;
+  border-radius: 8px;
+  padding: 12px;
+  background: vars.$color-surface;
+}
+
+.itemHeader {
+  color: vars.$text-secondary;
+  margin-bottom: 8px;
+}
+
+.logs {
+  white-space: pre-wrap;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid vars.$color-border;
+  background: #0c0c0e;
+  max-height: 350px;
+  overflow: auto;
 }

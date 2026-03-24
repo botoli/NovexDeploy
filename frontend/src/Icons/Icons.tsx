@@ -1,5 +1,12 @@
-// src/Icons/Icons.tsx
-import React from "react";
+import type React from "react";
+
+type IconProps = {
+  size?: number;
+  color?: string;
+  className?: string;
+  badgeColor?: string;
+  badgeNumber?: number;
+} & React.SVGProps<SVGSVGElement>;
 
 // Иконки уведомлений
 export const NotificationBell = ({
@@ -7,7 +14,7 @@ export const NotificationBell = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -35,7 +42,7 @@ export const NotificationBellWithBadge = ({
   badgeNumber,
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <NotificationBell
@@ -76,7 +83,7 @@ export const UserIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -102,7 +109,7 @@ export const UserCircleIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -129,7 +136,7 @@ export const SettingsIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -155,7 +162,7 @@ export const LogoutIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -183,7 +190,7 @@ export const ChevronDownIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -208,7 +215,7 @@ export const MenuIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -235,7 +242,7 @@ export const CloseIcon = ({
   color = "currentColor",
   className = "",
   ...props
-}) => {
+}: IconProps) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

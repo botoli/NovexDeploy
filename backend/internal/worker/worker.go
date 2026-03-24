@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"localVercel/db"
 	"localVercel/internal/deployer"
 	"localVercel/internal/queue"
@@ -37,7 +36,7 @@ func (w *Worker) Start(ctx context.Context) {
 			if err != nil {
 				// Handle timeout/empty if Redis blocks or fails
 				if err != nil && err.Error() != "redis: nil" {
-					// Use specific error checks if needed, but BRPop returns redis.Nil on timeout if configured? 
+					// Use specific error checks if needed, but BRPop returns redis.Nil on timeout if configured?
 					// BRPop with 0 timeout blocks indefinitely unless connection lost
 					log.Printf("Error dequeuing: %v", err)
 					time.Sleep(2 * time.Second) // backoff
@@ -46,7 +45,7 @@ func (w *Worker) Start(ctx context.Context) {
 			}
 
 			log.Printf("Processing job %s (type: %s)", job.ID, job.Type)
-			
+
 			// 2. Process
 			if job.Type == "deploy" {
 				w.processDeployJob(ctx, job)
@@ -88,7 +87,7 @@ func (w *Worker) processDeployJob(ctx context.Context, job *queue.Job) {
 	// For now assume Deployer handles logic or payload has basic info.
 	// We'll pass "" as framework to let Deployer auto-detect
 	logs, err := w.Deployer.BuildProject(ctx, payload.DeploymentID, payload.RepoURL, payload.Branch, "", payload.BuildCmd)
-	
+
 	deployment.Logs = logs
 	if err != nil {
 		deployment.Status = "failed"
@@ -110,11 +109,13 @@ func (w *Worker) processDeployJob(ctx context.Context, job *queue.Job) {
 	}
 
 	// Success
-	deployment.Status = "ready" // or "success"
-	deployment.PreviewURL = fmt.Sprintf("http://%s.localhost:3000", payload.ProjectID) // Mock URL
+	deployment.Status = "ready"
+	deployment.ArtifactPath = finalPath
 	deployment.CompletedAt = time.Now()
-	// Storing finalPath optionally or inferring it
 	db.DB.Save(&deployment)
-	
+	db.DB.Model(&models.Project{}).Where("id = ?", payload.ProjectID).Updates(map[string]interface{}{
+		"runtime_state": "stopped",
+	})
+
 	log.Printf("Job %s completed successfully. Deployed to %s", job.ID, finalPath)
 }
