@@ -2,8 +2,10 @@ import styles from "./ProjectsPage.module.scss";
 import { GithubUser } from "../../Store/GithubInfo.store";
 import { useEffect, useState } from "react";
 import { api } from "../../shared/api";
+import { useNavigate } from "react-router-dom";
 
 export function ProjectsPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [projectType, setProjectType] = useState("backend");
@@ -96,6 +98,9 @@ export function ProjectsPage() {
               <div className={styles.meta}>Branch: {p.branch || "main"}</div>
               <div className={styles.meta}>Root: {p.root_dir || "."}</div>
               <div className={styles.meta}>Runtime: {p.runtime_state || "stopped"}</div>
+              <button className={styles.button} style={{ marginTop: 10 }} onClick={() => navigate(`/projects/${p.id}`)}>
+                Open project
+              </button>
             </div>
           ))}
           {projects.length === 0 && <div className={styles.empty}>No projects yet</div>}

@@ -11,6 +11,7 @@ import { LeftPanel } from "./Pages/LeftPanel";
 import { DeploymentsPage } from "./Pages/Deployments";
 import { api } from "./shared/api";
 import { SettingsPage } from "./Pages/Overview";
+import { ProjectDetailsPage } from "./Pages/project-details";
 
 const App = observer(() => {
   const fetchRepos = async () => {
@@ -58,6 +59,7 @@ const App = observer(() => {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
           <Route path="/deploy" element={<DeployPage />} />
           <Route path="/deployments" element={<DeploymentsPage />} />
           <Route path="/logs" element={<DeploymentsPage logsOnly />} />
