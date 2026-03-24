@@ -45,19 +45,20 @@ type GitHubWebhookPayload struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	} `json:"pusher"`
-	Sender struct {
-		Login string `json:"login"`
-		ID    int    `json:"id"`
-	} `json:"sender"`
 	Commits []struct {
-		ID      string `json:"id"`
-		Message string `json:"message"`
-		URL     string `json:"url"`
-		Author  struct {
+		ID        string `json:"id"`
+		Message   string `json:"message"`
+		Timestamp string `json:"timestamp"`
+		URL       string `json:"url"`
+		Author    struct {
 			Name  string `json:"name"`
 			Email string `json:"email"`
 		} `json:"author"`
 	} `json:"commits"`
+	Sender struct {
+		Login string `json:"login"`
+		ID    int    `json:"id"`
+	} `json:"sender"`
 }
 
 type GitHubUser struct {

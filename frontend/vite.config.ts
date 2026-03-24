@@ -30,6 +30,14 @@ export default defineConfig({
         target: "http://localhost:8888",
         changeOrigin: true,
       },
+      "/git": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+      },
+      "/webhook": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+      },
     },
   },
 });

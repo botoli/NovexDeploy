@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"localVercel/db"
+	"localVercel/internal/queue"
 	"localVercel/models"
 	"localVercel/utils"
 	"localVercel/webhook"
@@ -25,10 +26,10 @@ type GitHubHandler struct {
 	redirectURL    string
 }
 
-func NewGitHubHandler(base *Handler) *GitHubHandler {
+func NewGitHubHandler(base *Handler, q queue.Queue) *GitHubHandler {
 	return &GitHubHandler{
 		Handler:        base,
-		webhookManager: webhook.NewGitHubWebhookManager(),
+		webhookManager: webhook.NewGitHubWebhookManager(q),
 		clientID:       os.Getenv("GITHUB_CLIENT_ID"),
 		clientSecret:   os.Getenv("GITHUB_CLIENT_SECRET"),
 		redirectURL:    "http://localhost:8888/auth/github/callback",
@@ -44,7 +45,6 @@ func (h *GitHubHandler) HandleGitHubLogin(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 }
 
-// HandleGitHubCallback обрабатывает callback от GitHub
 // HandleGitHubCallback обрабатывает callback от GitHub
 func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
@@ -85,19 +85,18 @@ func (h *GitHubHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Requ
 	var user models.User
 	result := db.DB.Where("git_hub_id = ?", githubUser.ID).First(&user)
 
-	
 	if result.Error != nil {
 		log.Println("Creating new user")
 		// Создаем нового пользователя
 		user = models.User{
-    Email:       githubUser.Email,
-    Name:        githubUser.Name,
-    AvatarURL:   githubUser.AvatarURL,
-    GitHubID:    githubUser.ID,           // это сохранится в git_hub_id
-    GitHubLogin: githubUser.Login,        // это сохранится в git_hub_login
-    GitHubToken: token,                    // это сохранится в git_hub_token
-    LastLoginAt: time.Now(),
-}
+			Email:       githubUser.Email,
+			Name:        githubUser.Name,
+			AvatarURL:   githubUser.AvatarURL,
+			GitHubID:    githubUser.ID,           // это сохранится в git_hub_id
+			GitHubLogin: githubUser.Login,        // это сохранится в git_hub_login
+			GitHubToken: token,                    // это сохранится в git_hub_token
+			LastLoginAt: time.Now(),
+		}
 		db.DB.Create(&user)
 	} else {
 		log.Println("Updating existing user")
@@ -178,7 +177,7 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	webhookConfig := &models.WebhookConfig{
 		ProjectID:    projectID,
 		GitHubRepo:   req.RepoFullName,
-		WebhookURL:   fmt.Sprintf("http://localhost:8888/webhook/github/%s", projectID),
+		WebhookURL:   fmt.Sprintf("http://localhost:8888/webhook/github/%s", projectID), // В продакшене нужен публичный URL
 		Active:       true,
 		Events:       []string{"push"},
 		Branch:       req.Branch,
@@ -203,7 +202,84 @@ func (h *GitHubHandler) HandleConnectRepo(w http.ResponseWriter, r *http.Request
 	
 	db.DB.Save(&project)
 
-	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Repository connected", project))
+	// --- FEATURE: Trigger Immediate Build on Connect ---
+	// Create Deployment record
+	deployment := models.Deployment{
+		ProjectID: project.ID,
+		Status:    "pending",
+		Branch:    project.Branch,
+		StartedAt: time.Now(),
+		// Commit info might be missing here until we fetch it, or wait for clone
+	}
+	db.DB.Create(&deployment)
+
+	// Create Job
+	jobPayload := map[string]interface{}{
+		"deployment_id": deployment.ID,
+		"project_id":    project.ID,
+		"repo_url":      fmt.Sprintf("https://github.com/%s.git", req.RepoFullName), // Construct generic HTTPS clone URL
+		"branch":        project.Branch,
+		"build_cmd":     project.BuildCmd,
+		"output_dir":    project.OutputDir,
+	}
+	payloadBytes, _ := json.Marshal(jobPayload)
+	
+	job := &queue.Job{
+		ID:        fmt.Sprintf("job_%d", time.Now().UnixNano()),
+		Type:      "deploy",
+		Payload:   payloadBytes,
+		CreatedAt: time.Now(),
+		Status:    "pending",
+	}
+
+	// Enqueue
+	if err := h.webhookManager.Queue.Enqueue(r.Context(), job); err != nil {
+		log.Printf("Failed to enqueue initial build: %v", err)
+		// Don't fail the request, just log
+	}
+	// ---------------------------------------------------
+
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Repository connected and build started", project))
+}
+
+// HandleListRepos возвращает список репозиториев пользователя
+func (h *GitHubHandler) HandleListRepos(w http.ResponseWriter, r *http.Request) {
+	log.Println("Handling /git/repos list request")
+	
+	// Получаем пользователя из сессии
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		log.Println("Missing session token cookie")
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Unauthorized", nil))
+		return
+	}
+	log.Println("Session cookie found")
+
+	var session models.Session
+	if err := db.DB.Where("token = ? AND expires_at > ?", cookie.Value, time.Now()).First(&session).Error; err != nil {
+		log.Printf("Session lookup failed: %v", err)
+		utils.WriteJSON(w, http.StatusUnauthorized, h.jsonResponse(false, "Invalid session", nil))
+		return
+	}
+	log.Printf("Session OK for user %s", session.UserID)
+
+	var user models.User
+	if err := db.DB.First(&user, "id = ?", session.UserID).Error; err != nil {
+		log.Printf("User lookup failed: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, h.jsonResponse(false, "User not found", nil))
+		return
+	}
+	log.Printf("User loaded: %s, token length: %d", user.GitHubLogin, len(user.GitHubToken))
+
+	repos, err := h.getUserRepos(user.GitHubToken)
+	if err != nil {
+		log.Printf("Failed to fetch repos: %v", err)
+		utils.WriteJSON(w, http.StatusBadGateway, h.jsonResponse(false, "Failed to fetch repos from GitHub", nil))
+		return
+	}
+	
+	log.Printf("Returning %d repos to client", len(repos))
+	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Repositories retrieved", repos))
 }
 
 // HandleListBuilds список билдов проекта
@@ -232,134 +308,39 @@ func (h *GitHubHandler) HandleGetBuild(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, h.jsonResponse(true, "Build status", deployment))
 }
 
-// HandleWebhook точка входа для GitHub webhook (обновленная версия с сохранением в БД)
+// HandleWebhook точка входа для GitHub webhook
 func (h *GitHubHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	projectID := strings.TrimPrefix(r.URL.Path, "/webhook/github/")
-	
-	// Получаем проект из БД
-	var project models.Project
-	if err := db.DB.First(&project, "id = ?", projectID).Error; err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
-
-	// Читаем тело запроса
-	payload, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusBadRequest)
-		return
-	}
-
-	// Проверяем подпись
-	signature := r.Header.Get("X-Hub-Signature")
-	if !h.webhookManager.VerifyGitHubSignature(project.WebhookSecret, payload, signature) {
-		http.Error(w, "Invalid signature", http.StatusUnauthorized)
-		return
-	}
-
-	event := r.Header.Get("X-GitHub-Event")
-	
-	switch event {
-	case "push":
-		h.handlePushEvent(project, payload)
-	case "ping":
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("pong"))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Webhook received"))
+	h.webhookManager.HandleWebhook(w, r)
 }
 
-func (h *GitHubHandler) handlePushEvent(project models.Project, payload []byte) {
-	var push models.GitHubWebhookPayload
-	if err := json.Unmarshal(payload, &push); err != nil {
-		log.Printf("Failed to parse push payload: %v", err)
-		return
-	}
+// Helper methods
 
-	// Проверяем ветку
-	if project.Branch != "" && !strings.HasSuffix(push.Ref, project.Branch) {
-		return
-	}
-
-	// Создаем запись о деплое в БД
-	deployment := models.Deployment{
-		ProjectID: project.ID,
-		Status:    "pending",
-		Branch:    push.Ref,
-		StartedAt: time.Now(),
-	}
-	
-	if len(push.Commits) > 0 {
-		deployment.CommitSHA = push.Commits[0].ID
-		deployment.CommitMsg = push.Commits[0].Message
-	}
-	
-	db.DB.Create(&deployment)
-
-	// Конфигурация билда
-	buildConfig := models.BuildConfig{
-		ProjectID:     project.ID,
-		Branch:        push.Ref,
-		CommitSHA:     deployment.CommitSHA,
-		CommitMessage: deployment.CommitMsg,
-		BuildCommand:  project.BuildCmd,
-		OutputDir:     project.OutputDir,
-	}
-
-	// Запускаем билд асинхронно
-	go func() {
-		// Обновляем статус
-		db.DB.Model(&deployment).Update("status", "building")
-
-		result, err := h.webhookManager.Builder.BuildProject(buildConfig)
-		
-		if err != nil {
-			db.DB.Model(&deployment).Updates(map[string]interface{}{
-				"status":       "failed",
-				"logs":         err.Error(),
-				"completed_at": time.Now(),
-			})
-			return
-		}
-
-		// Сохраняем результат
-		db.DB.Model(&deployment).Updates(map[string]interface{}{
-			"status":       result.Status,
-			"logs":         result.Logs,
-			"preview_url":  result.PreviewURL,
-			"build_time":   result.Duration,
-			"completed_at": result.CompletedAt,
-		})
-	}()
-}
-
-// Вспомогательные функции
 func generateSessionToken() string {
     b := make([]byte, 32)
     rand.Read(b)
     return hex.EncodeToString(b)
 }
 
-// Остальные вспомогательные функции (exchangeCodeForToken, getGitHubUser, getUserRepos) остаются без изменений
+func generateSecret() string {
+	b := make([]byte, 20)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
 
 func (h *GitHubHandler) exchangeCodeForToken(code string) (string, error) {
 	tokenURL := "https://github.com/login/oauth/access_token"
-	
-	req, err := http.NewRequest("POST", tokenURL, nil)
+	reqBody, _ := json.Marshal(map[string]string{
+		"client_id":     h.clientID,
+		"client_secret": h.clientSecret,
+		"code":          code,
+		"redirect_uri":  h.redirectURL,
+	})
+
+	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(string(reqBody)))
 	if err != nil {
 		return "", err
 	}
-
-	q := req.URL.Query()
-	q.Add("client_id", h.clientID)
-	q.Add("client_secret", h.clientSecret)
-	q.Add("code", code)
-	q.Add("redirect_uri", h.redirectURL)
-	req.URL.RawQuery = q.Encode()
-	
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
@@ -369,26 +350,29 @@ func (h *GitHubHandler) exchangeCodeForToken(code string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	var tokenResponse struct {
+	var result struct {
 		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Scope       string `json:"scope"`
+		Error       string `json:"error"`
+		ErrorDesc   string `json:"error_description"`
 	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
 
-	return tokenResponse.AccessToken, nil
+	if result.Error != "" {
+		return "", fmt.Errorf("%s: %s", result.Error, result.ErrorDesc)
+	}
+
+	return result.AccessToken, nil
 }
 
-func (h *GitHubHandler) getGitHubUser(accessToken string) (*models.GitHubUser, error) {
+func (h *GitHubHandler) getGitHubUser(token string) (*models.GitHubUser, error) {
 	req, err := http.NewRequest("GET", "https://api.github.com/user", nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Authorization", "token "+accessToken)
+	req.Header.Set("Authorization", "token "+token)
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -396,22 +380,25 @@ func (h *GitHubHandler) getGitHubUser(accessToken string) (*models.GitHubUser, e
 		return nil, err
 	}
 	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("github api error: %s", resp.Status)
+	}
 
 	var user models.GitHubUser
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, err
 	}
-
 	return &user, nil
 }
 
-func (h *GitHubHandler) getUserRepos(accessToken string) ([]models.GitHubRepo, error) {
+func (h *GitHubHandler) getUserRepos(token string) ([]models.GitHubRepo, error) {
 	req, err := http.NewRequest("GET", "https://api.github.com/user/repos?sort=updated&per_page=100", nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Authorization", "token "+accessToken)
+	req.Header.Set("Authorization", "token "+token)
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -420,18 +407,33 @@ func (h *GitHubHandler) getUserRepos(accessToken string) ([]models.GitHubRepo, e
 	}
 	defer resp.Body.Close()
 
-	var repos []models.GitHubRepo
-	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Printf("GitHub API Error: %s, Body: %s", resp.Status, string(bodyBytes))
+		return nil, fmt.Errorf("github api error: %s", resp.Status)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
+	}
+	log.Printf("GitHub Response (truncated): %.200s", string(bodyBytes)) // Log first 200 chars
+
+	var repos []models.GitHubRepo
+	if err := json.Unmarshal(bodyBytes, &repos); err != nil {
+		log.Printf("Failed to unmarshal repos: %v", err)
+		return nil, err
+	}
+	// Explicitly handle empty array vs nil to avoid "null" in JSON response
+	if repos == nil {
+		repos = []models.GitHubRepo{}
+	}
+	log.Printf("Parsed %d repos from GitHub", len(repos))
+	
+	// Если репозиториев 0, это странно для активного пользователя - логируем тело
+	if len(repos) == 0 {
+		log.Println("WARNING: 0 requested repos found. This might be due to auth scopes or empty account.")
 	}
 
 	return repos, nil
-}
-
-func generateSecret() string {
-	b := make([]byte, 20)
-	for i := range b {
-		b[i] = byte('a' + i%26)
-	}
-	return string(b)
 }

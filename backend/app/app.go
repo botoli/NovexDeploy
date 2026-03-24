@@ -1,6 +1,7 @@
 package app
 
 import (
+	"localVercel/internal/queue"
 	"net/http"
 	"time"
 
@@ -10,10 +11,12 @@ import (
 type App struct {
 	startedAt time.Time
 	upgrader  websocket.Upgrader
+	Queue     queue.Queue
 }
 
-func New() *App {
+func New(q queue.Queue) *App {
 	return &App{
+		Queue:     q,
 		startedAt: time.Now(),
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,

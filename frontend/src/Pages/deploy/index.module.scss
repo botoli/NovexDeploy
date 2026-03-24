@@ -1,0 +1,399 @@
+@use "../../GlobalStyles/variables.scss" as vars;
+
+.page {
+  width: 100%;
+  background-color: vars.$color-bg;
+  min-height: 100vh;
+  color: vars.$text-primary;
+  padding: vars.$space-8 vars.$space-12;
+  font-family: vars.$font-main;
+
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: vars.$space-8;
+    background: linear-gradient(to right, #fff, #a1a1aa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: vars.$space-8;
+
+  .backLink {
+    text-decoration: none;
+    color: vars.$text-secondary;
+    display: flex;
+    align-items: center;
+    gap: vars.$space-2;
+    font-size: vars.$font-size-sm;
+    transition: color vars.$transition-fast;
+
+    &:hover {
+      color: vars.$text-primary;
+    }
+  }
+
+  .collaborateBtn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid vars.$color-border;
+    border-radius: vars.$radius-md;
+    padding: vars.$space-2 vars.$space-4;
+    color: vars.$text-primary;
+    font-size: vars.$font-size-sm;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: vars.$space-2;
+    transition: all vars.$transition-fast;
+
+    &:hover {
+      background: vars.$bg-hover;
+      border-color: vars.$text-secondary;
+    }
+  }
+}
+
+.inputSection {
+  margin-bottom: vars.$space-10;
+
+  .inputWrapper {
+    position: relative;
+    max-width: 800px;
+
+    input {
+      width: 100%;
+      background: black;
+      border: 1px solid vars.$color-border;
+      border-radius: vars.$radius-md;
+      padding: vars.$space-4 vars.$space-4 vars.$space-4 48px;
+      color: vars.$text-primary;
+      font-size: vars.$font-size-md;
+      outline: none;
+      transition: border-color vars.$transition-fast;
+
+      &:focus {
+        border-color: vars.$text-secondary;
+      }
+
+      &::placeholder {
+        color: vars.$text-muted;
+      }
+    }
+  }
+}
+
+.linkIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: vars.$text-muted;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: vars.$space-8;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sectionTitle {
+  font-size: vars.$font-size-lg;
+  font-weight: 600;
+  margin-bottom: vars.$space-4;
+  color: vars.$text-primary;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .actions {
+    display: flex;
+    gap: vars.$space-4;
+    font-size: vars.$font-size-sm;
+    font-weight: 400;
+
+    a,
+    button {
+      color: vars.$text-secondary;
+      text-decoration: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      &:hover {
+        color: vars.$text-primary;
+      }
+    }
+  }
+}
+
+.importSection {
+  .repoSelector {
+    display: flex;
+    gap: vars.$space-2;
+    margin-bottom: vars.$space-4;
+
+    .select {
+      background: black;
+      border: 1px solid vars.$color-border;
+      border-radius: vars.$radius-md;
+      color: vars.$text-primary;
+      padding: 8px 12px;
+      min-width: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .search {
+      flex: 1;
+      position: relative;
+
+      input {
+        background: black;
+        border: 1px solid vars.$color-border;
+        border-radius: vars.$radius-md;
+        padding: 8px 12px 8px 36px;
+        color: vars.$text-primary;
+        outline: none;
+
+        &:focus {
+          border-color: vars.$text-secondary;
+        }
+      }
+
+      svg {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: vars.$text-muted;
+      }
+    }
+  }
+
+  .repoList {
+    border: 1px solid vars.$color-border;
+    border-radius: vars.$radius-md;
+    overflow: hidden;
+
+    .repoItem {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: vars.$space-4;
+      background: black;
+      border-bottom: 1px solid vars.$color-border;
+      transition: background-color vars.$transition-fast;
+
+      &:hover {
+        background-color: vars.$bg-hover;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .repoInfo {
+        display: flex;
+        align-items: center;
+        gap: vars.$space-4;
+        flex: 1;
+
+        .repoIcon {
+          color: vars.$text-muted;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: vars.$color-surface;
+          border-radius: 50%;
+        }
+
+        .repoDetail {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .nameRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .name {
+            font-weight: 500;
+            color: vars.$text-primary;
+          }
+
+          .privateBadge {
+            font-size: 10px;
+            background: vars.$color-border;
+            padding: 2px 6px;
+            border-radius: 12px;
+            color: vars.$text-secondary;
+            text-transform: uppercase;
+            font-weight: bold;
+          }
+
+          .time {
+            font-size: vars.$font-size-sm;
+            color: vars.$text-muted;
+          }
+        }
+      }
+
+      .importBtn {
+        background: vars.$text-primary;
+        color: black;
+        border: none;
+        border-radius: vars.$radius-sm;
+        padding: 6px 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity vars.$transition-fast;
+
+        &:hover {
+          opacity: 0.9;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid vars.$text-muted;
+  border-top-color: vars.$text-primary;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cloneSection {
+  .templateGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: vars.$space-4;
+
+    .templateCard {
+      background: black;
+      border: 1px solid vars.$color-border;
+      border-radius: vars.$radius-md;
+      padding: vars.$space-4 10px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      min-height: 160px;
+
+      &:hover {
+        border-color: vars.$text-secondary;
+      }
+
+      .cardHeader {
+        h3 {
+          font-size: vars.$font-size-md;
+          font-weight: 600;
+          color: vars.$text-primary;
+          margin-bottom: vars.$space-2;
+        }
+
+        p {
+          font-size: 13px;
+          color: vars.$text-secondary;
+          line-height: 1.5;
+        }
+      }
+
+      .frameworkLogo {
+        margin-top: vars.$space-4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: vars.$text-muted;
+
+        .logo {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+  }
+}
+
+.footer {
+  margin-top: vars.$space-12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .footerBtnWrapper {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+  }
+
+  .footerText {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+
+    h3 {
+      font-size: vars.$font-size-md;
+      color: vars.$text-primary;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    p {
+      font-size: 13px;
+      color: vars.$text-muted;
+    }
+  }
+
+  .emptyProjectBtn {
+    background: transparent;
+    border: 1px solid vars.$color-border;
+    color: vars.$text-primary;
+    padding: 8px 16px;
+    border-radius: vars.$radius-md;
+    font-size: vars.$font-size-sm;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: vars.$text-secondary;
+      background: vars.$bg-hover;
+    }
+  }
+}

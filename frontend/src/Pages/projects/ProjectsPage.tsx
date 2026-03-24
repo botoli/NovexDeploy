@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import styles from "./ProjectsPage.module.scss";
 import { GithubUser } from "../../Store/GithubInfo.store";
+import { LeftPanel } from "../LeftPanel";
 
 export function ProjectsPage() {
   if (GithubUser.loading) return <div>Loading...</div>;
@@ -21,33 +21,36 @@ export function ProjectsPage() {
     );
 
   return (
-    <div className={styles.root}>
-      <div style={{ padding: "20px", border: "1px solid #ccc" }}>
-        <h2>GitHub Profile</h2>
+    <div className={styles.Page}>
+      <LeftPanel />
+      <div className={styles.root}>
+        <div style={{ padding: "20px", border: "1px solid #ccc" }}>
+          <h2>GitHub Profile</h2>
 
-        {/* Проверяем что пришло */}
-        <pre>{JSON.stringify(GithubUser.user, null, 2)}</pre>
+          {/* Проверяем что пришло */}
+          <pre>{JSON.stringify(GithubUser.user, null, 2)}</pre>
 
-        {/* Аватар */}
-        {GithubUser.user.avatar_url && (
-          <img
-            src={GithubUser.user.avatar_url}
-            alt={GithubUser.user.name}
-            style={{ width: "100px", borderRadius: "50%" }}
-          />
-        )}
+          {/* Аватар */}
+          {GithubUser.user.avatar_url && (
+            <img
+              src={GithubUser.user.avatar_url}
+              alt={GithubUser.user.name}
+              style={{ width: "100px", borderRadius: "50%" }}
+            />
+          )}
 
-        {/* Информация */}
-        <div>
-          <p>
-            <strong>Name:</strong> {GithubUser.user.name || "N/A"}
-          </p>
-          <p>
-            <strong>Username:</strong> {GithubUser.user.github_login || "N/A"}
-          </p>
-          <p>
-            <strong>Email:</strong> {GithubUser.user.email || "N/A"}
-          </p>
+          {/* Информация */}
+          <div>
+            <p>
+              <strong>Name:</strong> {GithubUser.user.name || "N/A"}
+            </p>
+            <p>
+              <strong>Username:</strong> {GithubUser.user.github_login || "N/A"}
+            </p>
+            <p>
+              <strong>Email:</strong> {GithubUser.user.email || "N/A"}
+            </p>
+          </div>
         </div>
       </div>
     </div>

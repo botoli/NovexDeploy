@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Box, Rocket, Terminal, Settings } from "lucide-react";
 import styles from "./index.module.scss";

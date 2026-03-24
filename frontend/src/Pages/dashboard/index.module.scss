@@ -1,12 +1,16 @@
 // ✅ Тоже правильно
 @use "../../GlobalStyles/variables.scss" as vars;
-
+.Page {
+  display: flex;
+  flex-flow: row nowrap;
+  width: 100%;
+  min-height: 100vh;
+}
 .container {
   width: 100%;
   min-height: 100vh;
-  color: vars.$text-secondary;
+
   padding: 1.5rem;
-  background-color: vars.$color-bg;
 }
 
 .header {

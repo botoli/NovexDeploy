@@ -7,11 +7,13 @@ import (
 
 func (a *App) RegisterRoutes(mux *http.ServeMux) {
 	h := handlers.New(a.startedAt, &a.upgrader)
-	githubHandler := handlers.NewGitHubHandler(h)
+	githubHandler := handlers.NewGitHubHandler(h, a.Queue)
+	projectHandler := handlers.NewProjectHandler(h)
 
 	// GitHub OAuth
 	mux.HandleFunc("GET /auth/github/login", githubHandler.HandleGitHubLogin)
 	mux.HandleFunc("GET /auth/github/callback", githubHandler.HandleGitHubCallback)
+	mux.HandleFunc("GET /git/repos", githubHandler.HandleListRepos)
 
 	// GitHub Webhook (публичный, без аутентификации)
 	mux.HandleFunc("POST /webhook/github/{projectId}", githubHandler.HandleWebhook)
@@ -43,11 +45,14 @@ func (a *App) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /workspaces/{id}/members/{userId}", h.HandleActionWithPath("workspaces.members.remove", []string{"id", "userId"}))
 
 	// 4. Projects
-	mux.HandleFunc("GET /projects", h.HandleList("projects"))
-	mux.HandleFunc("POST /projects", h.HandleCreate("projects"))
-	mux.HandleFunc("GET /projects/{id}", h.HandleGetByID("projects", "id"))
-	mux.HandleFunc("PATCH /projects/{id}", h.HandlePatchByID("projects", "id"))
-	mux.HandleFunc("DELETE /projects/{id}", h.HandleDeleteByID("projects", "id"))
+	// mux.HandleFunc("GET /projects", h.HandleList("projects")) // Using real handler
+	mux.HandleFunc("GET /projects", projectHandler.HandleListProjects)
+	mux.HandleFunc("POST /projects", projectHandler.HandleCreateProject) 
+	mux.HandleFunc("GET /projects/{id}", projectHandler.HandleGetProject)
+	// mux.HandleFunc("GET /projects/{id}", h.HandleGetByID("projects", "id")) // Using real handler
+	// mux.HandleFunc("PATCH /projects/{id}", h.HandlePatchByID("projects", "id")) // Keep generic for now if not needed
+	// mux.HandleFunc("DELETE /projects/{id}", h.HandleDeleteByID("projects", "id")) // Keep generic for now if not needed
+
 	mux.HandleFunc("GET /projects/{id}/overview", h.HandleActionWithPath("projects.overview", []string{"id"}))
 	mux.HandleFunc("GET /projects/{id}/stats", h.HandleActionWithPath("projects.stats", []string{"id"}))
 
@@ -115,7 +120,7 @@ func (a *App) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /actions/import-repo", h.HandleAction("actions.import_repo"))
 
 	// 15. Git Integration
-	mux.HandleFunc("GET /git/repos", h.HandleAction("git.repos"))
+	// mux.HandleFunc("GET /git/repos", githubHandler.HandleListRepos) // Moved to top
 	mux.HandleFunc("POST /git/connect", h.HandleAction("git.connect"))
 	mux.HandleFunc("POST /git/disconnect", h.HandleAction("git.disconnect"))
 	mux.HandleFunc("GET /git/{projectId}/branches", h.HandleActionWithPath("git.branches", []string{"projectId"}))
